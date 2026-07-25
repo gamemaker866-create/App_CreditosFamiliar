@@ -26,11 +26,10 @@ DATOS_INICIALES = {
 }
 
 CATALOGO_GASTAR = [
-    {"id": 1, "emoji": "🛋️", "nombre": "Librarte de una tarea por 1 día", "coste": 60, "categoria": "Comodines", "limite_diario": 1},
-    {"id": 2, "emoji": "📺", "nombre": "Ver la tele (1h)", "coste": 15, "categoria": "Ocio", "limite_diario": 3},
-    {"id": 2, "emoji": "🍫", "nombre": "Comer dulce", "coste": 10, "categoria": "Comida", "limite_diario": 2},
-    {"id": 4, "emoji": "😴", "nombre": "Dormir la siesta", "coste": 5, "categoria": "Descanso", "limite_diario": 1},
-    {"id": 6, "emoji": "🎵", "nombre": "Dominar el altavoz (1h)", "coste": 10, "categoria": "Ocio"}
+    {"id": 1, "emoji": "🛋️", "nombre": "Librarte de una tarea por 1 día", "coste": 60, "limite_diario": 1},
+    {"id": 2, "emoji": "📺", "nombre": "Ver la tele (1h)", "coste": 15, "limite_diario": 3},
+    {"id": 4, "emoji": "🍫", "nombre": "Comer dulce", "coste": 15, "limite_diario": 1},
+    {"id": 6, "emoji": "🎵", "nombre": "Elegir musica (1h)", "coste": 10, "limite_diario": 2},
     
 ]
 
