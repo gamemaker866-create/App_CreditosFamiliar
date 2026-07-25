@@ -83,7 +83,7 @@ if "usuario" not in st.session_state:
     st.session_state.usuario = None
 
 if not st.session_state.usuario:
-    st.title("🔑 CreditHub — Acceso")
+    st.title("🔑 ACF — Acceso")
     
     tab_login, tab_reg = st.tabs(["Iniciar Sesión", "Registrarse"])
     
