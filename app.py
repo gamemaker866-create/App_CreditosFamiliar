@@ -56,17 +56,24 @@ def cargar_datos():
         with open(ARCHIVO_BD, "r", encoding="utf-8") as f:
             datos = json.load(f)
         semana_hoy = datetime.now().isocalendar()[1]
+        
+        # Comprueba si ha cambiado el número de semana en el calendario
         if datos.get("semana_actual") != semana_hoy:
             datos["semana_actual"] = semana_hoy
             f_act = datetime.now().strftime("%d/%m/%Y %H:%M")
             for usr, d in datos["usuarios"].items():
-                # Solo restaura a 100 si tiene menos de 100 créditos
-                if d["creditos"] < 100:
-                    d["creditos"] = 100
                 
-                # Resetea el stock diario usado
+                # 1. Solo sube a 100 a los que gastaron y tienen menos de 100
+                if d.get("creditos", 0) < 100:
+                    d["creditos"] = 100
+                # 2. Resetea los contadores del límite de uso de las tareas
                 d["stock_usado"] = {}
-                d["historial"].append({"actividad": "🔄 Reinicio semanal de límites", "coste": 0, "fecha": f_act})
+                # 3. Guarda el evento en el historial del usuario
+                d["historial"].append({
+                    "actividad": "🔄 Reinicio semanal de límites", 
+                    "coste": 0, 
+                    "fecha": f_act
+                })
             guardar_datos(datos)
         return datos
     except Exception:
