@@ -37,7 +37,7 @@ CATALOGO_GASTAR = [
 ]
 
 CATALOGO_GANAR = [
-    {"id": 101, "emoji": "🧺", "nombre": "Recoger extendedero", "recompensa": 15, "limite_diario": 2},
+    {"id": 101, "emoji": "🧺", "nombre": "Recoger el tendedero", "recompensa": 15, "limite_diario": 2},
     {"id": 102, "emoji": "🧹", "nombre": "Recoger habitación", "recompensa": 20, "limite_diario": 1},
     {"id": 103, "emoji": "🍽️", "nombre": "Lavar los platos", "recompensa": 15, "limite_diario": 3},
     {"id": 104, "emoji": "🍽️", "nombre": "Poner / Quitar la mesa", "recompensa": 10, "limite_diario": 2},
