@@ -60,9 +60,13 @@ def cargar_datos():
             datos["semana_actual"] = semana_hoy
             f_act = datetime.now().strftime("%d/%m/%Y %H:%M")
             for usr, d in datos["usuarios"].items():
-                d["creditos"] = 100
+                # Solo restaura a 100 si tiene menos de 100 créditos
+                if d["creditos"] < 100:
+                    d["creditos"] = 100
+                
+                # Resetea el stock diario usado
                 d["stock_usado"] = {}
-                d["historial"].append({"actividad": "🔄 Reinicio semanal", "coste": 0, "fecha": f_act})
+                d["historial"].append({"actividad": "🔄 Reinicio semanal de límites", "coste": 0, "fecha": f_act})
             guardar_datos(datos)
         return datos
     except Exception:
