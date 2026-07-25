@@ -26,17 +26,12 @@ DATOS_INICIALES = {
 }
 
 CATALOGO_GASTAR = [
-    {"id": 1, "emoji": "🛋️", "nombre": "Librarte de una tarea por 1 día", "coste": 60, "limite_diario": 1},
-    {"id": 2, "emoji": "📺", "nombre": "Ver la tele / Maratón (1h)", "coste": 15, "limite_diario": 3},
-    {"id": 3, "emoji": "🎮", "nombre": "Jugar videojuegos (1h)", "coste": 20, "limite_diario": 2},
-    {"id": 4, "emoji": "🍿", "nombre": "Noche de palomitas / snacks", "coste": 15, "limite_diario": 1},
-    {"id": 5, "emoji": "🍕", "nombre": "Pedir pizza / comida favorita", "coste": 35, "limite_diario": 1},
-    {"id": 6, "emoji": "🎵", "nombre": "DJ de la casa / coche (1h)", "coste": 10, "limite_diario": 2},
-    {"id": 7, "emoji": "💺", "nombre": "El mejor sitio del sofá hoy", "coste": 10, "limite_diario": 1},
-    {"id": 8, "emoji": "💤", "nombre": "Despertador aplazado (+15 min)", "coste": 20, "limite_diario": 1},
-    {"id": 9, "emoji": "🎧", "nombre": "Pase de Modo No Molestar (1h)", "coste": 20, "limite_diario": 2},
-    {"id": 10, "emoji": "🚗", "nombre": "Copiloto VIP en los trayectos", "coste": 15, "limite_diario": 1},
-    {"id": 11, "emoji": "🍦", "nombre": "Elegir o reclamar el postre VIP", "coste": 15, "limite_diario": 1}
+    {"id": 1, "emoji": "🛋️", "nombre": "Librarte de una tarea por 1 día", "coste": 60, "categoria": "Comodines", "limite_diario": 1},
+    {"id": 2, "emoji": "📺", "nombre": "Ver la tele (1h)", "coste": 15, "categoria": "Ocio", "limite_diario": 3},
+    {"id": 2, "emoji": "🍫", "nombre": "Comer dulce", "coste": 10, "categoria": "Comida", "limite_diario": 2},
+    {"id": 4, "emoji": "😴", "nombre": "Dormir la siesta", "coste": 5, "categoria": "Descanso", "limite_diario": 1},
+    {"id": 6, "emoji": "🎵", "nombre": "Dominar el altavoz (1h)", "coste": 10, "categoria": "Ocio"}
+    
 ]
 
 CATALOGO_GANAR = [
