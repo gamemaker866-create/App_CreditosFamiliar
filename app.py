@@ -28,7 +28,7 @@ DATOS_INICIALES = {
 }
 
 CATALOGO_GASTAR = [
-    {"id": 1, "emoji": "🛋️", "nombre": "Librarte de una tarea por 1 día", "coste": 60, "limite_diario": 1},
+    {"id": 1, "emoji": "🛋️", "nombre": "Librarte de una tarea por 1 día", "coste": 30, "limite_diario": 1},
     {"id": 2, "emoji": "📺", "nombre": "Ver la tele (1h)", "coste": 15, "limite_diario": 3},
     {"id": 3, "emoji": "🃏", "nombre": "Cambiar de juego/regla", "coste": 30, "limite_diario": 2},
     {"id": 4, "emoji": "🍫", "nombre": "Comer dulce", "coste": 15, "limite_diario": 1},
