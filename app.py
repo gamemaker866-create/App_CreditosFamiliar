@@ -185,17 +185,37 @@ def renderizar_panel_principal():
                 st.warning("Por favor, escribe algo antes de enviar.")
 
         # VISTA EXCLUSIVA PARA EL ADMINISTRADOR (ERIC)
+        # VISTA EXCLUSIVA DE SUGERENCIAS PARA ERIC
         if usr == "eric":
             st.divider()
-            st.subheader("📥 Sugerencias Recibidas (Panel de Control)")
+            col_sug_head1, col_sug_head2 = st.columns([3, 1])
+            with col_sug_head1:
+                st.subheader("📥 Sugerencias Recibidas (Panel de Control)")
+            with col_sug_head2:
+                # Botón para borrar TODAS las sugerencias de golpe
+                if db.get("sugerencias") and st.button("Vaciar todas 🗑️", key="btn_vaciar_sug"):
+                    db["sugerencias"] = []
+                    guardar_datos(db)
+                    st.success("Bandeja vaciada")
+                    st.rerun()
+
             sugerencias_lista = db.get("sugerencias", [])
             
             if not sugerencias_lista:
                 st.info("No hay sugerencias registradas por ahora.")
             else:
-                for idx, sug in enumerate(reversed(sugerencias_lista)):
-                    st.markdown(f"**👤 {sug['usuario']}** — *{sug['fecha']}*")
-                    st.write(f"💬 \"{sug['texto']}\"")
+                # Recorremos la lista usando enumerate para poder identificar el índice a borrar
+                for idx, sug in enumerate(list(sugerencias_lista)):
+                    col_s1, col_s2 = st.columns([4, 1])
+                    with col_s1:
+                        st.markdown(f"**👤 {sug['usuario']}** — *{sug['fecha']}*")
+                        st.write(f"💬 \"{sug['texto']}\"")
+                    with col_s2:
+                        # Botón para borrar UNA sugerencia individual
+                        if st.button("Borrar ❌", key=f"del_sug_{idx}_{sug['fecha']}"):
+                            db["sugerencias"].remove(sug)
+                            guardar_datos(db)
+                            st.rerun()
                     st.divider()
     # 2. GANAR CRÉDITOS
     with tab_ganar:
