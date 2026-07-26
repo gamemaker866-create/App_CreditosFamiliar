@@ -46,7 +46,10 @@ CATALOGO_GASTAR = [
     {"id": 16, "emoji": "⚖️", "nombre": "Voto de calidad en empates", "coste": 30, "limite_diario": 1},
     {"id": 17, "emoji": "🛋️", "nombre": "Reclamar la mejor manta/cojín", "coste": 10, "limite_diario": 1},
     {"id": 18, "emoji": "🤐", "nombre": "Palabra prohibida (1h)", "coste": 20, "limite_diario": 1},
-    {"id": 19, "emoji": "🍕", "nombre": "Reclamar la última porción", "coste": 30, "limite_diario": 1}
+    {"id": 19, "emoji": "🍕", "nombre": "Reclamar la última porción", "coste": 30, "limite_diario": 1},
+    {"id": 20, "emoji": "🗑️", "nombre": "Inmunidad de basura (3 días)", "coste": 30, "limite_diario": 1},
+    {"id": 21, "emoji": "🙏", "nombre": "Favor obligatorio", "coste": 20, "limite_diario": 1},
+    {"id": 22, "emoji": "🥪", "nombre": "¡Sin corteza porfavor!", "coste": 15, "limite_diario": 1}
 ]
 
 CATALOGO_GANAR = [
