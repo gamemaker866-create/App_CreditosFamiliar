@@ -36,7 +36,8 @@ CATALOGO_GASTAR = [
     {"id": 6, "emoji": "🎵", "nombre": "Elegir musica (1h)", "coste": 10, "limite_diario": 2},
     {"id": 7, "emoji": "🧊", "nombre": "Camarero por un momento", "coste": 20, "limite_diario": 1},
     {"id": 8, "emoji": "🍕", "nombre": "El ingrediente prohibido", "coste": 20, "limite_diario": 1},
-    {"id": 9, "emoji": "💆", "nombre": "Masaje 5-10 min", "coste": 10, "limite_diario": 1}
+    {"id": 9, "emoji": "💆", "nombre": "Masaje 5-10 min", "coste": 10, "limite_diario": 1},
+    {"id": 10, "emoji": "🛡️", "nombre": "Inmunidad en un juego", "coste": 20, "limite_diario": 1}
 ]
 
 CATALOGO_GANAR = [
