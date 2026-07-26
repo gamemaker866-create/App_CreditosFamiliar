@@ -13,7 +13,7 @@ ARCHIVO_BD = "datos.json"
 
 DATOS_INICIALES = {
     "semana_actual": datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1],
-    "sugerencias": [],  # <-- Guarda aquí todas las sugerencias enviadas
+    "sugerencias": [],
     "usuarios": {
         "eric": {
             "password": "2020_Electronica",
