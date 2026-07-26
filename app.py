@@ -10,7 +10,12 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 @st.cache_resource
 def init_supabase():
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    # 🧹 LIMPIEZA AUTOMÁTICA DE LA URL:
+    url_limpia = SUPABASE_URL.strip().rstrip("/")
+    if url_limpia.endswith("/rest/v1"):
+        url_limpia = url_limpia[:-8]
+        
+    return create_client(url_limpia, SUPABASE_KEY)
 
 supabase = init_supabase()
 
