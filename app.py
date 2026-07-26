@@ -5,7 +5,7 @@ from supabase import create_client
 
 st.set_page_config(page_title="ACF", page_icon="💳", layout="centered")
 
-SUPABASE_URL = "https://rhejicyuvtfymnmjlpky.supabase.co/rest/v1/" # Tu URL
+SUPABASE_URL = "https://rhejicyuvtfymnmjlpky.supabase.co" # Tu URL
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZWppY3l1dnRmeW1ubWpscGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwODY2MDMsImV4cCI6MjEwMDY2MjYwM30.DUAOn7PdHC7x_GyIAMCfbmIkEk7eZymFnIMsSnL3h6Q"
 
 @st.cache_resource
