@@ -70,7 +70,8 @@ CATALOGO_GANAR = [
     {"id": 113, "emoji": "📖", "nombre": "Lectura de libro (30 min)", "puntos": 10, "limite_diario": 3},
     {"id": 114, "emoji": "📚", "nombre": "Despolvar estantería o librería", "puntos": 20, "limite_diario": 1},
     {"id": 115, "emoji": "🔋", "nombre": "Gestionar reciclaje de pilas/electrónicos", "puntos": 15, "limite_diario": 1},
-    {"id": 116, "emoji": "♻️", "nombre": "Manualidad con envase reciclado", "puntos": 20, "limite_diario": 1}
+    {"id": 116, "emoji": "♻️", "nombre": "Manualidad con envase reciclado", "puntos": 20, "limite_diario": 1},
+    {"id": 117, "emoji": "📖", "nombre": "Logro: 14 días seguidos de lectura (30 min)", "puntos": 40, "limite_diario": 1, "destacado": True}
     
 ]
 
