@@ -172,9 +172,8 @@ if not st.session_state.usuario:
     st.stop()
 
 # -------------------------------------------------------------------
-# PANEL PRINCIPAL EN TIEMPO REAL
+# PANEL PRINCIPAL
 # -------------------------------------------------------------------
-@st.fragment(run_every=3)
 def renderizar_panel_principal():
     db = cargar_datos()
     usr = st.session_state.usuario
