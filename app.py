@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from supabase import create_client, Client
+from supabase import create_client
 
 # -------------------------------------------------------------------
 # CONFIGURACIÓN Y PERSISTENCIA (SUPABASE)
