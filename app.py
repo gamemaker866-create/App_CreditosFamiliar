@@ -41,7 +41,11 @@ CATALOGO_GASTAR = [
     {"id": 11, "emoji": "🎲", "nombre": "Elegir el juego de mesa de hoy", "coste": 20, "limite_diario": 1},
     {"id": 12, "emoji": "🪞", "nombre": "Carta espejo: Rebotar un favor", "coste": 25, "limite_diario": 1},
     {"id": 13, "emoji": "🤏", "nombre": "Impuesto del 10% de snack", "coste": 10, "limite_diario": 2},
-    {"id": 14, "emoji": "🏆", "nombre": "Pase VIP: Fin de semana libre", "coste": 180, "limite_diario": 1, "destacado": True}
+    {"id": 14, "emoji": "🏆", "nombre": "Pase VIP: Fin de semana libre", "coste": 180, "limite_diario": 1, "destacado": True},
+    {"id": 15, "emoji": "📜", "nombre": "Crear una regla absurda (1h)", "coste": 25, "limite_diario": 1},
+    {"id": 16, "emoji": "⚖️", "nombre": "Voto de calidad en empates", "coste": 30, "limite_diario": 1},
+    {"id": 17, "emoji": "🛋️", "nombre": "Reclamar la mejor manta/cojín", "coste": 10, "limite_diario": 1},
+    {"id": 18, "emoji": "🤐", "nombre": "Palabra prohibida (1h)", "coste": 20, "limite_diario": 1}
 ]
 
 CATALOGO_GANAR = [
@@ -55,7 +59,8 @@ CATALOGO_GANAR = [
     {"id": 108, "emoji": "🪴", "nombre": "Regar las plantas", "recompensa": 10, "limite_diario": 1},
     {"id": 109, "emoji": "👔", "nombre": "Doblar la ropa del tendedero", "recompensa": 5, "limite_diario": 2},
     {"id": 110, "emoji": "🫧", "nombre": "Poner la lavadora", "recompensa": 10, "limite_diario":2},
-    {"id": 111, "emoji": "🛍️", "nombre": "Ir a comprar (en el barrio)", "recompensa": 5, "limite_diario":1}
+    {"id": 111, "emoji": "🛍️", "nombre": "Ir a comprar (en el barrio)", "recompensa": 5, "limite_diario":1},
+    
 ]
 
 def obtener_fecha_hora():
