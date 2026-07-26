@@ -5,7 +5,7 @@ from supabase import create_client
 
 st.set_page_config(page_title="ACF", page_icon="💳", layout="centered")
 
-SUPABASE_URL = "https://rhejicyuvtfymnmjlpky.supabase.co/rest/v1/"  # Tu URL
+SUPABASE_URL = "https://rhejicyuvtfymnmjlpky.supabase.co/rest/v1/" # Tu URL
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZWppY3l1dnRmeW1ubWpscGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwODY2MDMsImV4cCI6MjEwMDY2MjYwM30.DUAOn7PdHC7x_GyIAMCfbmIkEk7eZymFnIMsSnL3h6Q"
 
 @st.cache_resource
@@ -90,7 +90,7 @@ def obtener_fecha_hora():
 def cargar_datos():
     try:
         response = supabase.table("estado_app").select("datos").eq("id", 1).execute()
-        if response.data and response.data[0].get("datos"):
+        if response.data and len(response.data) > 0 and response.data[0].get("datos"):
             datos = response.data[0]["datos"]
             
             # Asegurar claves por defecto
@@ -123,7 +123,7 @@ def cargar_datos():
 
 def guardar_datos(datos):
     try:
-        supabase.table("estado_app").update({"datos": datos}).eq("id", 1).execute()
+        supabase.table("estado_app").upsert({"id": 1, "datos": datos}).execute()
     except Exception as e:
         st.error(f"Error guardando datos en Supabase: {e}")
 
