@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # -------------------------------------------------------------------
 # CONFIGURACIÓN Y PERSISTENCIA
@@ -11,7 +12,7 @@ st.set_page_config(page_title="ACF", page_icon="💳", layout="centered")
 ARCHIVO_BD = "datos.json"
 
 DATOS_INICIALES = {
-    "semana_actual": datetime.now().isocalendar()[1],
+    "semana_actual": datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1],
     "sugerencias": [],  # <-- Guarda aquí todas las sugerencias enviadas
     "usuarios": {
         "eric": {
@@ -50,6 +51,10 @@ CATALOGO_GANAR = [
     {"id": 109, "emoji": "👔", "nombre": "Doblar la ropa del tendedero", "recompensa": 5, "limite_diario": 2}
 ]
 
+def obtener_fecha_hora():
+    """Devuelve la fecha y hora formateada según la zona horaria de Madrid"""
+    return datetime.now(ZoneInfo("Europe/Madrid")).strftime("%d/%m/%Y %H:%M")
+
 def cargar_datos():
     if not os.path.exists(ARCHIVO_BD):
         guardar_datos(DATOS_INICIALES)
@@ -58,13 +63,12 @@ def cargar_datos():
         with open(ARCHIVO_BD, "r", encoding="utf-8") as f:
             datos = json.load(f)
         
-        # Asegura que exista la lista de sugerencias
         datos.setdefault("sugerencias", [])
         
-        semana_hoy = datetime.now().isocalendar()[1]
+        semana_hoy = datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1]
         if datos.get("semana_actual") != semana_hoy:
             datos["semana_actual"] = semana_hoy
-            f_act = datetime.now().strftime("%d/%m/%Y %H:%M")
+            f_act = obtener_fecha_hora()
             for usr, d in datos["usuarios"].items():
                 if d.get("creditos", 0) < 100:
                     d["creditos"] = 100
@@ -124,11 +128,10 @@ if not st.session_state.usuario:
     st.stop()
 
 # -------------------------------------------------------------------
-# PANEL PRINCIPAL EN TIEMPO REAL (AUTO-REFRESCO CADA 3 SEGUNDOS)
+# PANEL PRINCIPAL EN TIEMPO REAL
 # -------------------------------------------------------------------
 @st.fragment(run_every=3)
 def renderizar_panel_principal():
-    # Recargar la base de datos en cada intervalo
     db = cargar_datos()
     usr = st.session_state.usuario
 
@@ -148,7 +151,6 @@ def renderizar_panel_principal():
 
     st.metric(label="Saldo Disponible", value=f"{usr_data['creditos']} Créditos")
 
-    # Pestañas Principales
     tab_perfil, tab_ganar, tab_tienda, tab_comunidad = st.tabs(["Mi Perfil", "💪 Ganar", "🛒 Gastar", "👥 Comunidad"])
 
     # 1. PERFIL
@@ -164,7 +166,7 @@ def renderizar_panel_principal():
 
         st.divider()
 
-        # FORMULARIO DE SUGERENCIAS PARA TODOS LOS USUARIOS
+        # SUGERENCIAS
         st.subheader("💡 Enviar una Sugerencia")
         st.caption("¿Tienes alguna idea para mejorar la app o sugerir tareas/premios?")
         
@@ -175,28 +177,28 @@ def renderizar_panel_principal():
                 nueva_sug = {
                     "usuario": usr.capitalize(),
                     "texto": sugerencia_txt,
-                    "fecha": datetime.now().strftime("%d/%m/%Y %H:%M")
+                    "fecha": obtener_fecha_hora()
                 }
                 db.setdefault("sugerencias", []).append(nueva_sug)
                 guardar_datos(db)
-                st.success("¡Sugerencia enviada correctamente! Gracias por colaborar.")
+                
+                # Muestra mensaje de éxito y vacía el campo de texto
+                st.toast("✅ Sugerencia enviada correctamente. ¡Muchas gracias!", icon="🎉")
+                st.session_state["input_sugerencia"] = ""
                 st.rerun()
             else:
                 st.warning("Por favor, escribe algo antes de enviar.")
 
-        # VISTA EXCLUSIVA PARA EL ADMINISTRADOR (ERIC)
         # VISTA EXCLUSIVA DE SUGERENCIAS PARA ERIC
         if usr == "eric":
             st.divider()
             col_sug_head1, col_sug_head2 = st.columns([3, 1])
             with col_sug_head1:
-                st.subheader("📥 Sugerencias Recibidas (Panel de Control)")
+                st.subheader("📥 Sugerencias Recibidas")
             with col_sug_head2:
-                # Botón para borrar TODAS las sugerencias de golpe
                 if db.get("sugerencias") and st.button("Vaciar todas 🗑️", key="btn_vaciar_sug"):
                     db["sugerencias"] = []
                     guardar_datos(db)
-                    st.success("Bandeja vaciada")
                     st.rerun()
 
             sugerencias_lista = db.get("sugerencias", [])
@@ -204,66 +206,93 @@ def renderizar_panel_principal():
             if not sugerencias_lista:
                 st.info("No hay sugerencias registradas por ahora.")
             else:
-                # Recorremos la lista usando enumerate para poder identificar el índice a borrar
                 for idx, sug in enumerate(list(sugerencias_lista)):
                     col_s1, col_s2 = st.columns([4, 1])
                     with col_s1:
                         st.markdown(f"**👤 {sug['usuario']}** — *{sug['fecha']}*")
                         st.write(f"💬 \"{sug['texto']}\"")
                     with col_s2:
-                        # Botón para borrar UNA sugerencia individual
-                        if st.button("Borrar ❌", key=f"del_sug_{idx}_{sug['fecha']}"):
+                        if st.button("Borrar ❌", key=f"del_sug_{idx}"):
                             db["sugerencias"].remove(sug)
                             guardar_datos(db)
                             st.rerun()
                     st.divider()
+
     # 2. GANAR CRÉDITOS
     with tab_ganar:
         st.subheader("Completa tareas para ganar créditos")
-        fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+        
+        # BUSCADOR
+        search_ganar = st.text_input("🔍 Buscar tarea...", key="search_ganar").strip().lower()
+        
+        fecha_hoy = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
         stock = usr_data.setdefault("stock_usado", {}).setdefault(fecha_hoy, {})
 
-        for item in CATALOGO_GANAR:
-            usados = stock.get(str(item["id"]), 0)
-            disp = item["limite_diario"] - usados
-            
-            c1, c2 = st.columns([3, 1])
-            with c1:
-                st.markdown(f"**{item['emoji']} {item['nombre']}** \n`+{item['recompensa']} cr` | Disponibles: {disp}/{item['limite_diario']}")
-            with c2:
-                if st.button("Completar", key=f"ganar_{item['id']}", disabled=(disp <= 0)):
-                    usr_data["creditos"] += item["recompensa"]
-                    stock[str(item["id"])] = usados + 1
-                    usr_data["historial"].append({"actividad": f"{item['emoji']} {item['nombre']}", "coste": -item["recompensa"], "fecha": datetime.now().strftime("%d/%m/%Y %H:%M")})
-                    guardar_datos(db)
-                    st.success(f"¡+{item['recompensa']} créditos!")
-                    st.rerun()
-            st.divider()
+        # Filtrar por texto
+        tareas_filtradas = [t for t in CATALOGO_GANAR if search_ganar in t["nombre"].lower()]
+
+        if not tareas_filtradas:
+            st.info("No se encontraron tareas con esa búsqueda.")
+        else:
+            for item in tareas_filtradas:
+                usados = stock.get(str(item["id"]), 0)
+                disp = item["limite_diario"] - usados
+                
+                c1, c2 = st.columns([3, 1])
+                with c1:
+                    st.markdown(f"**{item['emoji']} {item['nombre']}** \n`+{item['recompensa']} cr` | Disponibles: {disp}/{item['limite_diario']}")
+                with c2:
+                    if st.button("Completar", key=f"ganar_{item['id']}", disabled=(disp <= 0)):
+                        usr_data["creditos"] += item["recompensa"]
+                        stock[str(item["id"])] = usados + 1
+                        usr_data["historial"].append({
+                            "actividad": f"{item['emoji']} {item['nombre']}", 
+                            "coste": -item["recompensa"], 
+                            "fecha": obtener_fecha_hora()
+                        })
+                        guardar_datos(db)
+                        st.toast(f"¡+{item['recompensa']} créditos obtenidos!", icon="💰")
+                        st.rerun()
+                st.divider()
 
     # 3. GASTAR CRÉDITOS
     with tab_tienda:
         st.subheader("Canjea tus créditos por recompensas")
-        fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+        
+        # BUSCADOR
+        search_gastar = st.text_input("🔍 Buscar recompensa...", key="search_gastar").strip().lower()
+        
+        fecha_hoy = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
         stock = usr_data.setdefault("stock_usado", {}).setdefault(fecha_hoy, {})
 
-        for item in CATALOGO_GASTAR:
-            usados = stock.get(str(item["id"]), 0)
-            disp = item["limite_diario"] - usados
-            
-            c1, c2 = st.columns([3, 1])
-            with c1:
-                st.markdown(f"**{item['emoji']} {item['nombre']}** \n`Coste: {item['coste']} cr` | Disponibles: {disp}/{item['limite_diario']}")
-            with c2:
-                puedes_comprar = disp > 0 and usr_data["creditos"] >= item["coste"]
-                if st.button("Canjear", key=f"gastar_{item['id']}", disabled=not puedes_comprar):
-                    usr_data["creditos"] -= item["coste"]
-                    stock[str(item["id"])] = usados + 1
-                    usr_data["historial"].append({"actividad": f"{item['emoji']} {item['nombre']}", "coste": item["coste"], "fecha": datetime.now().strftime("%d/%m/%Y %H:%M")})
-                    guardar_datos(db)
-                    st.balloons()
-                    st.success(f"¡Canjeado: {item['nombre']}!")
-                    st.rerun()
-            st.divider()
+        # Filtrar por texto
+        recompensas_filtradas = [r for r in CATALOGO_GASTAR if search_gastar in r["nombre"].lower()]
+
+        if not recompensas_filtradas:
+            st.info("No se encontraron recompensas con esa búsqueda.")
+        else:
+            for item in recompensas_filtradas:
+                usados = stock.get(str(item["id"]), 0)
+                disp = item["limite_diario"] - usados
+                
+                c1, c2 = st.columns([3, 1])
+                with c1:
+                    st.markdown(f"**{item['emoji']} {item['nombre']}** \n`Coste: {item['coste']} cr` | Disponibles: {disp}/{item['limite_diario']}")
+                with c2:
+                    puedes_comprar = disp > 0 and usr_data["creditos"] >= item["coste"]
+                    if st.button("Canjear", key=f"gastar_{item['id']}", disabled=not puedes_comprar):
+                        usr_data["creditos"] -= item["coste"]
+                        stock[str(item["id"])] = usados + 1
+                        usr_data["historial"].append({
+                            "actividad": f"{item['emoji']} {item['nombre']}", 
+                            "coste": item["coste"], 
+                            "fecha": obtener_fecha_hora()
+                        })
+                        guardar_datos(db)
+                        st.balloons()
+                        st.toast(f"¡Canjeado: {item['nombre']}!", icon="🎉")
+                        st.rerun()
+                st.divider()
 
     # 4. COMUNIDAD
     with tab_comunidad:
@@ -282,7 +311,6 @@ def renderizar_panel_principal():
             else:
                 st.error("Usuario no válido")
 
-        # Solicitudes Recibidas
         solis = usr_data.get("solicitudes_recibidas", [])
         if solis:
             st.subheader("📬 Solicitudes Pendientes")
@@ -300,7 +328,6 @@ def renderizar_panel_principal():
                     guardar_datos(db)
                     st.rerun()
 
-        # Amigos Conectados
         st.subheader("👥 Tu Comunidad")
         amigos = usr_data.get("amigos", [])
         if not amigos:
@@ -309,14 +336,13 @@ def renderizar_panel_principal():
             for a in amigos:
                 data_a = db["usuarios"].get(a, {})
                 with st.expander(f"👤 {a.capitalize()} — Saldo: {data_a.get('creditos', 0)} cr"):
-                    # Transferir créditos
                     max_tr = max(1, usr_data["creditos"])
                     monto = st.number_input(f"Transferir créditos a {a.capitalize()}", min_value=1, max_value=max_tr, key=f"tr_{a}")
                     if st.button(f"Enviar a {a.capitalize()}", key=f"btn_tr_{a}"):
                         if usr_data["creditos"] >= monto:
                             usr_data["creditos"] -= monto
                             data_a["creditos"] += monto
-                            f_act = datetime.now().strftime("%d/%m/%Y %H:%M")
+                            f_act = obtener_fecha_hora()
                             usr_data["historial"].append({"actividad": f"💸 Envío a {a.capitalize()}", "coste": monto, "fecha": f_act})
                             data_a["historial"].append({"actividad": f"🎁 Recibido de {usr.capitalize()}", "coste": -monto, "fecha": f_act})
                             guardar_datos(db)
@@ -329,5 +355,5 @@ def renderizar_panel_principal():
                     for h in reversed(data_a.get("historial", [])[-3:]):
                         st.caption(f"{h['fecha']} - {h['actividad']}")
 
-# Ejecutar el panel con refresco automático
+# Ejecución
 renderizar_panel_principal()
