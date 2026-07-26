@@ -45,7 +45,8 @@ CATALOGO_GASTAR = [
     {"id": 15, "emoji": "📜", "nombre": "Crear una regla absurda (1h)", "coste": 25, "limite_diario": 1},
     {"id": 16, "emoji": "⚖️", "nombre": "Voto de calidad en empates", "coste": 30, "limite_diario": 1},
     {"id": 17, "emoji": "🛋️", "nombre": "Reclamar la mejor manta/cojín", "coste": 10, "limite_diario": 1},
-    {"id": 18, "emoji": "🤐", "nombre": "Palabra prohibida (1h)", "coste": 20, "limite_diario": 1}
+    {"id": 18, "emoji": "🤐", "nombre": "Palabra prohibida (1h)", "coste": 20, "limite_diario": 1},
+    {"id": 19, "emoji": "🍕", "nombre": "Reclamar la última porción", "coste": 30, "limite_diario": 1}
 ]
 
 CATALOGO_GANAR = [
@@ -60,6 +61,7 @@ CATALOGO_GANAR = [
     {"id": 109, "emoji": "👔", "nombre": "Doblar la ropa del tendedero", "recompensa": 5, "limite_diario": 2},
     {"id": 110, "emoji": "🫧", "nombre": "Poner la lavadora", "recompensa": 10, "limite_diario":2},
     {"id": 111, "emoji": "🛍️", "nombre": "Ir a comprar (en el barrio)", "recompensa": 5, "limite_diario":1},
+    {"id": 112, "emoji": "🏃‍➡️", "nombre": "Hacer deporte", "recompensa": 10, "limite_diario": 2}
     
 ]
 
