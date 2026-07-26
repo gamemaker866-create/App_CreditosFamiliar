@@ -167,10 +167,20 @@ def renderizar_panel_principal():
         st.divider()
 
         # SUGERENCIAS
+# SUGERENCIAS
         st.subheader("💡 Enviar una Sugerencia")
         st.caption("¿Tienes alguna idea para mejorar la app o sugerir tareas/premios?")
         
-        sugerencia_txt = st.text_area("Escribe tu sugerencia aquí", key="input_sugerencia", placeholder="Ej: Añadir una recompensa para ir al cine...").strip()
+        # Inicializar el contador de reset para la clave si no existe
+        if "sug_key" not in st.session_state:
+            st.session_state.sug_key = 0
+
+        # El cuadro de texto usa una key dinámica para limpiarse sin errores
+        sugerencia_txt = st.text_area(
+            "Escribe tu sugerencia aquí", 
+            key=f"input_sugerencia_{st.session_state.sug_key}", 
+            placeholder="Ej: Añadir una recompensa para ir al cine..."
+        ).strip()
         
         if st.button("Enviar Sugerencia 📩"):
             if sugerencia_txt:
@@ -182,9 +192,9 @@ def renderizar_panel_principal():
                 db.setdefault("sugerencias", []).append(nueva_sug)
                 guardar_datos(db)
                 
-                # Muestra mensaje de éxito y vacía el campo de texto
+                # Cambiamos la clave para forzar a Streamlit a renderizar un cuadro de texto nuevo y vacío
+                st.session_state.sug_key += 1
                 st.toast("✅ Sugerencia enviada correctamente. ¡Muchas gracias!", icon="🎉")
-                st.session_state["input_sugerencia"] = ""
                 st.rerun()
             else:
                 st.warning("Por favor, escribe algo antes de enviar.")
