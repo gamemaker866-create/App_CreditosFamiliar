@@ -37,7 +37,11 @@ CATALOGO_GASTAR = [
     {"id": 7, "emoji": "🧊", "nombre": "Camarero por un momento", "coste": 20, "limite_diario": 1},
     {"id": 8, "emoji": "🍕", "nombre": "El ingrediente prohibido", "coste": 20, "limite_diario": 1},
     {"id": 9, "emoji": "💆", "nombre": "Masaje 5-10 min", "coste": 10, "limite_diario": 1},
-    {"id": 10, "emoji": "🛡️", "nombre": "Inmunidad en un juego", "coste": 20, "limite_diario": 1}
+    {"id": 10, "emoji": "🛡️", "nombre": "Inmunidad en un juego", "coste": 20, "limite_diario": 1},
+    {"id": 11, "emoji": "🎲", "nombre": "Elegir el juego de mesa de hoy", "coste": 20, "limite_diario": 1},
+    {"id": 12, "emoji": "🪞", "nombre": "Carta espejo: Rebotar un favor", "coste": 25, "limite_diario": 1},
+    {"id": 13, "emoji": "🤏", "nombre": "Impuesto del 10% de snack", "coste": 10, "limite_diario": 2},
+    {"id": 14, "emoji": "🏆", "nombre": "Pase VIP: Fin de semana libre", "coste": 180, "limite_diario": 1, "destacado": True}
 ]
 
 CATALOGO_GANAR = [
@@ -272,13 +276,10 @@ def renderizar_panel_principal():
     with tab_tienda:
         st.subheader("Canjea tus créditos por recompensas")
         
-        # BUSCADOR
         search_gastar = st.text_input("🔍 Buscar recompensa...", key="search_gastar").strip().lower()
-        
         fecha_hoy = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
         stock = usr_data.setdefault("stock_usado", {}).setdefault(fecha_hoy, {})
 
-        # Filtrar por texto
         recompensas_filtradas = [r for r in CATALOGO_GASTAR if search_gastar in r["nombre"].lower()]
 
         if not recompensas_filtradas:
@@ -287,12 +288,25 @@ def renderizar_panel_principal():
             for item in recompensas_filtradas:
                 usados = stock.get(str(item["id"]), 0)
                 disp = item["limite_diario"] - usados
+                puedes_comprar = disp > 0 and usr_data["creditos"] >= item["coste"]
+                
+                # Comprobamos si la tarea tiene la propiedad destacado
+                es_destacado = item.get("destacado", False)
                 
                 c1, c2 = st.columns([3, 1])
                 with c1:
-                    st.markdown(f"**{item['emoji']} {item['nombre']}** \n`Coste: {item['coste']} cr` | Disponibles: {disp}/{item['limite_diario']}")
+                    if es_destacado:
+                        # Cuadro con fondo amarillo y borde dorado
+                        st.markdown(f"""
+                            <div style="background-color: #fff9c4; padding: 10px; border-radius: 8px; border-left: 5px solid #fbc02d; color: #333;">
+                                <strong>⭐ {item['emoji']} {item['nombre']}</strong><br>
+                                <small><code>Coste: {item['coste']} cr</code> | Disponibles: {disp}/{item['limite_diario']}</small>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"**{item['emoji']} {item['nombre']}** \n`Coste: {item['coste']} cr` | Disponibles: {disp}/{item['limite_diario']}")
+                
                 with c2:
-                    puedes_comprar = disp > 0 and usr_data["creditos"] >= item["coste"]
                     if st.button("Canjear", key=f"gastar_{item['id']}", disabled=not puedes_comprar):
                         usr_data["creditos"] -= item["coste"]
                         stock[str(item["id"])] = usados + 1
