@@ -50,7 +50,7 @@ CATALOGO_GASTAR = [
     {"id": 20, "emoji": "🗑️", "nombre": "Inmunidad de basura (3 días)", "coste": 60, "limite_diario": 1},
     {"id": 21, "emoji": "🙏", "nombre": "Favor obligatorio", "coste": 20, "limite_diario": 1},
     {"id": 22, "emoji": "🥪", "nombre": "¡Sin corteza porfavor!", "coste": 15, "limite_diario": 1},
-    {"id": 23, "emoji": "😴", "nombre": "Siesta (1h max.)", "coste": 15, "limite_diario": 1},
+    {"id": 23, "emoji": "😴", "nombre": "Siesta (1h max.)", "coste": 5, "limite_diario": 1},
     {"id": 24, "emoji": "🎙️", "nombre": "Narración deportiva de tu vida (2 min)", "coste": 20, "limite_diario": 1}
 ]
 
