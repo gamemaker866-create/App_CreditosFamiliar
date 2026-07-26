@@ -12,6 +12,7 @@ ARCHIVO_BD = "datos.json"
 
 DATOS_INICIALES = {
     "semana_actual": datetime.now().isocalendar()[1],
+    "sugerencias": [],  # <-- Guarda aquí todas las sugerencias enviadas
     "usuarios": {
         "eric": {
             "password": "2020_Electronica",
@@ -45,7 +46,8 @@ CATALOGO_GANAR = [
     {"id": 105, "emoji": "🗑️", "nombre": "Sacar la basura", "recompensa": 10, "limite_diario": 1},
     {"id": 106, "emoji": "🍽️", "nombre": "Recoger el lavavajillas", "recompensa": 3, "limite_diario": 1},
     {"id": 107, "emoji": "👕", "nombre": "Poner el tendedero", "recompensa": 15, "limite_diario": 2},
-    {"id": 108, "emoji": "🪴", "nombre": "Regar las plantas", "recompensa": 10, "limite_diario": 1}
+    {"id": 108, "emoji": "🪴", "nombre": "Regar las plantas", "recompensa": 10, "limite_diario": 1},
+    {"id": 109, "emoji": "👔", "nombre": "Doblar la ropa del tendedero", "recompensa": 5, "limite_diario": 2}
 ]
 
 def cargar_datos():
@@ -55,25 +57,19 @@ def cargar_datos():
     try:
         with open(ARCHIVO_BD, "r", encoding="utf-8") as f:
             datos = json.load(f)
-        semana_hoy = datetime.now().isocalendar()[1]
         
-        # Comprueba si ha cambiado el número de semana en el calendario
+        # Asegura que exista la lista de sugerencias
+        datos.setdefault("sugerencias", [])
+        
+        semana_hoy = datetime.now().isocalendar()[1]
         if datos.get("semana_actual") != semana_hoy:
             datos["semana_actual"] = semana_hoy
             f_act = datetime.now().strftime("%d/%m/%Y %H:%M")
             for usr, d in datos["usuarios"].items():
-                
-                # 1. Solo sube a 100 a los que gastaron y tienen menos de 100
                 if d.get("creditos", 0) < 100:
                     d["creditos"] = 100
-                # 2. Resetea los contadores del límite de uso de las tareas
                 d["stock_usado"] = {}
-                # 3. Guarda el evento en el historial del usuario
-                d["historial"].append({
-                    "actividad": "🔄 Reinicio semanal de límites", 
-                    "coste": 0, 
-                    "fecha": f_act
-                })
+                d["historial"].append({"actividad": "🔄 Reinicio semanal de límites", "coste": 0, "fecha": f_act})
             guardar_datos(datos)
         return datos
     except Exception:
@@ -166,6 +162,41 @@ def renderizar_panel_principal():
                 signo = f"-{c} cr" if c > 0 else (f"+{abs(c)} cr" if c < 0 else "0 cr")
                 st.text(f"{item['fecha']} | {item['actividad']} ({signo})")
 
+        st.divider()
+
+        # FORMULARIO DE SUGERENCIAS PARA TODOS LOS USUARIOS
+        st.subheader("💡 Enviar una Sugerencia")
+        st.caption("¿Tienes alguna idea para mejorar la app o sugerir tareas/premios?")
+        
+        sugerencia_txt = st.text_area("Escribe tu sugerencia aquí", key="input_sugerencia", placeholder="Ej: Añadir una recompensa para ir al cine...").strip()
+        
+        if st.button("Enviar Sugerencia 📩"):
+            if sugerencia_txt:
+                nueva_sug = {
+                    "usuario": usr.capitalize(),
+                    "texto": sugerencia_txt,
+                    "fecha": datetime.now().strftime("%d/%m/%Y %H:%M")
+                }
+                db.setdefault("sugerencias", []).append(nueva_sug)
+                guardar_datos(db)
+                st.success("¡Sugerencia enviada correctamente! Gracias por colaborar.")
+                st.rerun()
+            else:
+                st.warning("Por favor, escribe algo antes de enviar.")
+
+        # VISTA EXCLUSIVA PARA EL ADMINISTRADOR (ERIC)
+        if usr == "eric":
+            st.divider()
+            st.subheader("📥 Sugerencias Recibidas (Panel de Control)")
+            sugerencias_lista = db.get("sugerencias", [])
+            
+            if not sugerencias_lista:
+                st.info("No hay sugerencias registradas por ahora.")
+            else:
+                for idx, sug in enumerate(reversed(sugerencias_lista)):
+                    st.markdown(f"**👤 {sug['usuario']}** — *{sug['fecha']}*")
+                    st.write(f"💬 \"{sug['texto']}\"")
+                    st.divider()
     # 2. GANAR CRÉDITOS
     with tab_ganar:
         st.subheader("Completa tareas para ganar créditos")
