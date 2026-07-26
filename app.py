@@ -49,7 +49,8 @@ CATALOGO_GANAR = [
     {"id": 107, "emoji": "👕", "nombre": "Poner el tendedero", "recompensa": 15, "limite_diario": 2},
     {"id": 108, "emoji": "🪴", "nombre": "Regar las plantas", "recompensa": 10, "limite_diario": 1},
     {"id": 109, "emoji": "👔", "nombre": "Doblar la ropa del tendedero", "recompensa": 5, "limite_diario": 2},
-    {"id": 110, "emoji": "🫧", "nombre": "Poner la lavadora", "recompensa": 10, "limite_diario":2}
+    {"id": 110, "emoji": "🫧", "nombre": "Poner la lavadora", "recompensa": 10, "limite_diario":2},
+    {"id": 111, "emoji": "🛍️", "nombre": "Ir a comprar (en el barrio)", "recompensa": 5, "limite_diario":1}
 ]
 
 def obtener_fecha_hora():
