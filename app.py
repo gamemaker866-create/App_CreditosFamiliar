@@ -1,15 +1,22 @@
 import streamlit as st
-import json
-import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from supabase import create_client, Client
 
 # -------------------------------------------------------------------
-# CONFIGURACIÓN Y PERSISTENCIA
+# CONFIGURACIÓN Y PERSISTENCIA (SUPABASE)
 # -------------------------------------------------------------------
 st.set_page_config(page_title="ACF", page_icon="💳", layout="centered")
 
-ARCHIVO_BD = "datos.json"
+# ⚠️ REEMPLAZA ESTOS VALORES CON TUS CLAVES DE SUPABASE
+SUPABASE_URL = "https://rhejicyuvtfymnmjlpky.supabase.co/rest/v1/"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZWppY3l1dnRmeW1ubWpscGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwODY2MDMsImV4cCI6MjEwMDY2MjYwM30.DUAOn7PdHC7x_GyIAMCfbmIkEk7eZymFnIMsSnL3h6Q"
+
+@st.cache_resource
+def init_supabase() -> Client:
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+supabase = init_supabase()
 
 DATOS_INICIALES = {
     "semana_actual": datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1],
@@ -70,15 +77,14 @@ CATALOGO_GANAR = [
     {"id": 107, "emoji": "👕", "nombre": "Poner el tendedero", "recompensa": 15, "limite_diario": 2},
     {"id": 108, "emoji": "🪴", "nombre": "Regar las plantas", "recompensa": 10, "limite_diario": 1},
     {"id": 109, "emoji": "👔", "nombre": "Doblar la ropa del tendedero", "recompensa": 5, "limite_diario": 2},
-    {"id": 110, "emoji": "🫧", "nombre": "Poner la lavadora", "recompensa": 10, "limite_diario":2},
-    {"id": 111, "emoji": "🛍️", "nombre": "Ir a comprar (en el barrio)", "recompensa": 5, "limite_diario":1},
+    {"id": 110, "emoji": "🫧", "nombre": "Poner la lavadora", "recompensa": 10, "limite_diario": 2},
+    {"id": 111, "emoji": "🛍️", "nombre": "Ir a comprar (en el barrio)", "recompensa": 5, "limite_diario": 1},
     {"id": 112, "emoji": "🏃‍➡️", "nombre": "Hacer deporte", "recompensa": 10, "limite_diario": 2},
     {"id": 113, "emoji": "📖", "nombre": "Lectura de libro (30 min)", "recompensa": 10, "limite_diario": 3},
     {"id": 114, "emoji": "📚", "nombre": "Despolvar estantería o librería", "recompensa": 20, "limite_diario": 1},
     {"id": 115, "emoji": "🔋", "nombre": "Gestionar reciclaje de pilas/electrónicos", "recompensa": 15, "limite_diario": 1},
     {"id": 116, "emoji": "♻️", "nombre": "Manualidad con envase reciclado", "recompensa": 20, "limite_diario": 1},
     {"id": 117, "emoji": "📖", "nombre": "Logro: 14 días seguidos de lectura (30 min)", "recompensa": 40, "limite_diario": 1, "destacado": True}
-    
 ]
 
 def obtener_fecha_hora():
@@ -86,32 +92,44 @@ def obtener_fecha_hora():
     return datetime.now(ZoneInfo("Europe/Madrid")).strftime("%d/%m/%Y %H:%M")
 
 def cargar_datos():
-    if not os.path.exists(ARCHIVO_BD):
-        guardar_datos(DATOS_INICIALES)
-        return DATOS_INICIALES
     try:
-        with open(ARCHIVO_BD, "r", encoding="utf-8") as f:
-            datos = json.load(f)
-        
-        datos.setdefault("sugerencias", [])
-        
-        semana_hoy = datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1]
-        if datos.get("semana_actual") != semana_hoy:
-            datos["semana_actual"] = semana_hoy
-            f_act = obtener_fecha_hora()
-            for usr, d in datos["usuarios"].items():
-                if d.get("creditos", 0) < 100:
-                    d["creditos"] = 100
-                d["stock_usado"] = {}
-                d["historial"].append({"actividad": "🔄 Reinicio semanal de límites", "coste": 0, "fecha": f_act})
-            guardar_datos(datos)
-        return datos
-    except Exception:
+        response = supabase.table("estado_app").select("datos").eq("id", 1).execute()
+        if response.data and response.data[0].get("datos"):
+            datos = response.data[0]["datos"]
+            
+            # Asegurar claves por defecto
+            datos.setdefault("sugerencias", [])
+            datos.setdefault("usuarios", {})
+            
+            # Inicializar usuario predeterminado si la BD está completamente vacía
+            if not datos["usuarios"]:
+                datos = DATOS_INICIALES
+                guardar_datos(datos)
+
+            # Comprobación de reinicio semanal
+            semana_hoy = datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1]
+            if datos.get("semana_actual") != semana_hoy:
+                datos["semana_actual"] = semana_hoy
+                f_act = obtener_fecha_hora()
+                for usr, d in datos["usuarios"].items():
+                    if d.get("creditos", 0) < 100:
+                        d["creditos"] = 100
+                    d["stock_usado"] = {}
+                    d.setdefault("historial", []).append({"actividad": "🔄 Reinicio semanal de límites", "coste": 0, "fecha": f_act})
+                guardar_datos(datos)
+            return datos
+        else:
+            guardar_datos(DATOS_INICIALES)
+            return DATOS_INICIALES
+    except Exception as e:
+        st.error(f"Error cargando datos de Supabase: {e}")
         return DATOS_INICIALES
 
 def guardar_datos(datos):
-    with open(ARCHIVO_BD, "w", encoding="utf-8") as f:
-        json.dump(datos, f, ensure_ascii=False, indent=4)
+    try:
+        supabase.table("estado_app").update({"datos": datos}).eq("id", 1).execute()
+    except Exception as e:
+        st.error(f"Error guardando datos en Supabase: {e}")
 
 # -------------------------------------------------------------------
 # GESTIÓN DE SESIÓN Y LOGIN
@@ -197,15 +215,12 @@ def renderizar_panel_principal():
         st.divider()
 
         # SUGERENCIAS
-# SUGERENCIAS
         st.subheader("💡 Enviar una Sugerencia")
         st.caption("¿Tienes alguna idea para mejorar la app o sugerir tareas/premios?")
         
-        # Inicializar el contador de reset para la clave si no existe
         if "sug_key" not in st.session_state:
             st.session_state.sug_key = 0
 
-        # El cuadro de texto usa una key dinámica para limpiarse sin errores
         sugerencia_txt = st.text_area(
             "Escribe tu sugerencia aquí", 
             key=f"input_sugerencia_{st.session_state.sug_key}", 
@@ -222,7 +237,6 @@ def renderizar_panel_principal():
                 db.setdefault("sugerencias", []).append(nueva_sug)
                 guardar_datos(db)
                 
-                # Cambiamos la clave para forzar a Streamlit a renderizar un cuadro de texto nuevo y vacío
                 st.session_state.sug_key += 1
                 st.toast("✅ Sugerencia enviada correctamente. ¡Muchas gracias!", icon="🎉")
                 st.rerun()
@@ -262,13 +276,10 @@ def renderizar_panel_principal():
     with tab_ganar:
         st.subheader("Completa tareas para ganar créditos")
         
-        # BUSCADOR
         search_ganar = st.text_input("🔍 Buscar tarea...", key="search_ganar").strip().lower()
-        
         fecha_hoy = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
         stock = usr_data.setdefault("stock_usado", {}).setdefault(fecha_hoy, {})
 
-        # Filtrar por texto
         tareas_filtradas = [t for t in CATALOGO_GANAR if search_ganar in t["nombre"].lower()]
 
         if not tareas_filtradas:
@@ -312,14 +323,11 @@ def renderizar_panel_principal():
                 usados = stock.get(str(item["id"]), 0)
                 disp = item["limite_diario"] - usados
                 puedes_comprar = disp > 0 and usr_data["creditos"] >= item["coste"]
-                
-                # Comprobamos si la tarea tiene la propiedad destacado
                 es_destacado = item.get("destacado", False)
                 
                 c1, c2 = st.columns([3, 1])
                 with c1:
                     if es_destacado:
-                        # Cuadro con fondo amarillo y borde dorado
                         st.markdown(f"""
                             <div style="background-color: #fff9c4; padding: 10px; border-radius: 8px; border-left: 5px solid #fbc02d; color: #333;">
                                 <strong>⭐ {item['emoji']} {item['nombre']}</strong><br>
@@ -394,7 +402,7 @@ def renderizar_panel_principal():
                             data_a["creditos"] += monto
                             f_act = obtener_fecha_hora()
                             usr_data["historial"].append({"actividad": f"💸 Envío a {a.capitalize()}", "coste": monto, "fecha": f_act})
-                            data_a["historial"].append({"actividad": f"🎁 Recibido de {usr.capitalize()}", "coste": -monto, "fecha": f_act})
+                            data_a.setdefault("historial", []).append({"actividad": f"🎁 Recibido de {usr.capitalize()}", "coste": -monto, "fecha": f_act})
                             guardar_datos(db)
                             st.success(f"¡Enviados {monto} créditos!")
                             st.rerun()
