@@ -1,4 +1,5 @@
 streamlit
-supabase
-httpx<0.28.0
-gotrue<2.10.0
+supabase==2.3.0
+httpx==0.24.1
+postgrest==0.10.6
+gotrue==1.3.0
