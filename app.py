@@ -56,7 +56,8 @@ CATALOGO_GASTAR = [
     {"id": 26, "emoji": "🤫", "nombre": "Susurrar frases cotidianas (1h)", "coste": 2, "limite_diario": 2},
     {"id": 27, "emoji": "🕵️‍♂️", "nombre": "Cerrar frases con 'es un misterio'", "coste": 1, "limite_diario": 2},
     {"id": 28, "emoji": "🧊", "nombre": "Saludar a los electrodomésticos (1h)", "coste": 2, "limite_diario": 2},
-    {"id": 29, "emoji": "🎬", "nombre": "Mirada a la cámara invisible (1h cada vez que pase algo gracioso o raro)", "coste": 2, "limite_diario": 3}
+    {"id": 29, "emoji": "🎬", "nombre": "Mirada a la cámara invisible (1h cada vez que pase algo gracioso o raro)", "coste": 2, "limite_diario": 3},
+    {"id": 30, "emoji": "❓", "nombre": "Formular preguntas en modo concurso", "coste": 2, "limite_diario": 1}
 ]
 
 CATALOGO_GANAR = [
