@@ -209,24 +209,35 @@ def renderizar_panel_principal():
                 # --- TARJETA EMERGENTE (MODAL) ---
                 # --- CONTROL DE ESTADO DE LA TARJETA ---
                 # --- TARJETA EMERGENTE PERSISTENTE CON ESTADO DE COMPLETADO ---
+                # --- CONTROL Y LIMPIEZA DE ESTADO DE LA TARJETA ---
         if "tarjeta_activa" not in st.session_state:
             st.session_state.tarjeta_activa = None
 
         @st.dialog("📜 Tarjeta de Recompensa / Regla")
         def mostrar_tarjeta():
             data = st.session_state.tarjeta_activa
-            if not data:
-                return
             
-            # Buscar el elemento en el historial real para ver si ya fue usado
+            # Validación de seguridad: si faltan datos o el índice no existe, cerramos la tarjeta
+            if not data or "idx_historial" not in data:
+                st.session_state.tarjeta_activa = None
+                st.rerun()
+                return
+
             idx_hist = data["idx_historial"]
+            
+            # Si el índice supera el tamaño del historial (por ejemplo, si se borró algo), cerramos
+            if idx_hist >= len(usr_data["historial"]):
+                st.session_state.tarjeta_activa = None
+                st.rerun()
+                return
+
             item_hist = usr_data["historial"][idx_hist]
             ya_usado = item_hist.get("usado", False)
 
-            st.markdown(f"### 👤 Usuario: **{data['usuario'].capitalize()}**")
+            st.markdown(f"### 👤 Usuario: **{data.get('usuario', usr).capitalize()}**")
             st.divider()
             
-            # Estilos según el estado (Activa vs Completada)
+            # Estilo dinámico según si está usado o no
             if ya_usado:
                 estilo_caja = "background: #e0e0e0; color: #616161; border: 2px dashed #9e9e9e;"
                 texto_estado = "✅ ¡ESTA RECOMPENSA YA HA SIDO USADA / COMPLETADA!"
@@ -254,7 +265,7 @@ def renderizar_panel_principal():
             )
             st.caption(f"📅 **Fecha de activación:** {item_hist['fecha']}")
             
-            # Botón para marcar como usado (se deshabilita si ya fue marcado)
+            # Botón bloqueable permanente
             if st.button("Marcar como Usado ✅", use_container_width=True, disabled=ya_usado, type="primary"):
                 item_hist["usado"] = True
                 guardar_datos(db)
@@ -266,8 +277,10 @@ def renderizar_panel_principal():
                 st.session_state.tarjeta_activa = None
                 st.rerun()
 
+        # Abrir tarjeta solo si hay datos válidos
         if st.session_state.tarjeta_activa:
             mostrar_tarjeta()
+
 
 
         # --- HISTORIAL CON BOTONES ---
