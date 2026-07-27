@@ -206,16 +206,59 @@ def renderizar_panel_principal():
 
     # 1. PERFIL
     with tab_perfil:
+                # --- TARJETA EMERGENTE (MODAL) ---
+        @st.dialog("📜 Tarjeta de Recompensa / Regla")
+        def mostrar_tarjeta(actividad, fecha, usuario):
+            st.markdown(f"### 👤 Usuario: **{usuario.capitalize()}**")
+            st.divider()
+            # Diseño estilo tarjeta de juego
+            st.markdown(
+                f"""
+                <div style="
+                    background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+                    padding: 25px;
+                    border-radius: 15px;
+                    text-align: center;
+                    color: #2c3e50;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+                    margin: 10px 0;
+                ">
+                    <h2 style="margin:0; color: #2c3e50;">{actividad}</h2>
+                    <p style="margin-top: 15px; font-weight: bold; font-size: 1.1em;">
+                        ¡Vale oficial canjeado y activo!
+                    </p>
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
+            st.caption(f"📅 **Fecha de activación:** {fecha}")
+            st.info("👉 Enseña esta pantalla para hacer valer tu recompensa o regla.")
+
+
+        # --- HISTORIAL CON BOTONES / TARJETAS ---
         st.subheader("📜 Historial de Actividad")
         if not usr_data["historial"]:
             st.info("Sin movimientos recientes")
         else:
-            for item in reversed(usr_data["historial"][-5:]):
+            st.caption("Pulsa sobre cualquier canje para abrir su tarjeta oficial:")
+            # Mostramos los últimos 10 movimientos
+            for idx, item in enumerate(reversed(usr_data["historial"][-10:])):
                 c = item["coste"]
-                signo = f"-{c} cr" if c > 0 else (f"+{abs(c)} cr" if c < 0 else "0 cr")
-                st.text(f"{item['fecha']} | {item['actividad']} ({signo})")
+                es_gasto = c > 0
+                signo = f"-{c} cr" if es_gasto else (f"+{abs(c)} cr" if c < 0 else "0 cr")
+                
+                col_h1, col_h2 = st.columns([3, 1])
+                with col_h1:
+                    # Si es un gasto/canje, mostramos un botón para abrir la tarjeta
+                    if es_gasto:
+                        if st.button(f"🎴 {item['actividad']}", key=f"btn_hist_{idx}", use_container_width=True):
+                            mostrar_tarjeta(item['actividad'], item['fecha'], usr)
+                    else:
+                        st.text(f"💪 {item['actividad']}")
+                with col_h2:
+                    st.caption(f"`{signo}`\n{item['fecha']}")
+                st.divider()
 
-        st.divider()
 
         # SUGERENCIAS
         st.subheader("💡 Enviar una Sugerencia")
