@@ -207,10 +207,19 @@ def renderizar_panel_principal():
     # 1. PERFIL
     with tab_perfil:
                 # --- TARJETA EMERGENTE (MODAL) ---
+                # --- CONTROL DE ESTADO DE LA TARJETA ---
+        if "tarjeta_activa" not in st.session_state:
+            st.session_state.tarjeta_activa = None
+
         @st.dialog("📜 Tarjeta de Recompensa / Regla")
-        def mostrar_tarjeta(actividad, fecha, usuario):
-            st.markdown(f"### 👤 Usuario: **{usuario.capitalize()}**")
+        def mostrar_tarjeta():
+            data = st.session_state.tarjeta_activa
+            if not data:
+                return
+            
+            st.markdown(f"### 👤 Usuario: **{data['usuario'].capitalize()}**")
             st.divider()
+            
             # Diseño estilo tarjeta de juego
             st.markdown(
                 f"""
@@ -223,7 +232,7 @@ def renderizar_panel_principal():
                     box-shadow: 0 4px 15px rgba(0,0,0,0.15);
                     margin: 10px 0;
                 ">
-                    <h2 style="margin:0; color: #2c3e50;">{actividad}</h2>
+                    <h2 style="margin:0; color: #2c3e50;">{data['actividad']}</h2>
                     <p style="margin-top: 15px; font-weight: bold; font-size: 1.1em;">
                         ¡Vale oficial canjeado y activo!
                     </p>
@@ -231,17 +240,23 @@ def renderizar_panel_principal():
                 """, 
                 unsafe_allow_html=True
             )
-            st.caption(f"📅 **Fecha de activación:** {fecha}")
+            st.caption(f"📅 **Fecha de activación:** {data['fecha']}")
             st.info("👉 Enseña esta pantalla para hacer valer tu recompensa o regla.")
+            
+            if st.button("Cerrar tarjeta ❌", use_container_width=True):
+                st.session_state.tarjeta_activa = None
+                st.rerun()
 
+        # Si hay una tarjeta activa guardada, la mantenemos abierta incluso con el autorefresco
+        if st.session_state.tarjeta_activa:
+            mostrar_tarjeta()
 
-        # --- HISTORIAL CON BOTONES / TARJETAS ---
+        # --- HISTORIAL CON BOTONES ---
         st.subheader("📜 Historial de Actividad")
         if not usr_data["historial"]:
             st.info("Sin movimientos recientes")
         else:
             st.caption("Pulsa sobre cualquier canje para abrir su tarjeta oficial:")
-            # Mostramos los últimos 10 movimientos
             for idx, item in enumerate(reversed(usr_data["historial"][-10:])):
                 c = item["coste"]
                 es_gasto = c > 0
@@ -249,15 +264,21 @@ def renderizar_panel_principal():
                 
                 col_h1, col_h2 = st.columns([3, 1])
                 with col_h1:
-                    # Si es un gasto/canje, mostramos un botón para abrir la tarjeta
                     if es_gasto:
                         if st.button(f"🎴 {item['actividad']}", key=f"btn_hist_{idx}", use_container_width=True):
-                            mostrar_tarjeta(item['actividad'], item['fecha'], usr)
+                            # Guardamos los datos de la tarjeta en la sesión
+                            st.session_state.tarjeta_activa = {
+                                "actividad": item['actividad'],
+                                "fecha": item['fecha'],
+                                "usuario": usr
+                            }
+                            st.rerun()
                     else:
                         st.text(f"💪 {item['actividad']}")
                 with col_h2:
                     st.caption(f"`{signo}`\n{item['fecha']}")
                 st.divider()
+
 
 
         # SUGERENCIAS
