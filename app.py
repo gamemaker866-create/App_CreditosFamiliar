@@ -419,7 +419,7 @@ def renderizar_panel_principal():
                         st.rerun()
                 st.divider()
 
-    # 4. COMUNIDAD
+        # 4. COMUNIDAD
     with tab_comunidad:
         st.subheader("📩 Enviar Solicitud de Amistad")
         nuevo_amigo = st.text_input("Usuario a añadir", key="add_amigo").strip().lower()
@@ -436,54 +436,59 @@ def renderizar_panel_principal():
             else:
                 st.error("Usuario no válido")
 
-                # --- ACEPTAR SOLICITUDES SIN DUPLICADOS ---
+        st.divider()
+
+        # SOLICITUDES PENDIENTES
         solis = usr_data.get("solicitudes_recibidas", [])
         if solis:
             st.subheader("📬 Solicitudes Pendientes")
-            # Usamos list(set(...)) para evitar procesar la misma solicitud dos veces
-            for s in list(set(solis)):
+            for idx, s in enumerate(list(set(solis))):
                 c1, c2, c3 = st.columns([2, 1, 1])
                 c1.write(f"👤 **{s.capitalize()}**")
                 
-                if c2.button("Aceptar ✅", key=f"ac_{s}"):
-                    # 1. Quitar de solicitudes pendientes
+                if c2.button("Aceptar ✅", key=f"ac_{idx}_{s}"):
                     usr_data["solicitudes_recibidas"] = [x for x in usr_data["solicitudes_recibidas"] if x != s]
                     
-                    # 2. Añadir a amigos evitando duplicados (usando set)
-                    amigos_actuales = set(usr_data.get("amigos", []))
-                    amigos_actuales.add(s)
-                    usr_data["amigos"] = list(amigos_actuales)
+                    # Añadir amigo sin duplicados
+                    amigos_usr = list(dict.fromkeys(usr_data.get("amigos", []) + [s]))
+                    usr_data["amigos"] = amigos_usr
                     
-                    # 3. Añadir en el perfil del amigo remitente (también sin duplicados)
-                    amigos_remitente = set(db["usuarios"][s].get("amigos", []))
-                    amigos_remitente.add(usr)
-                    db["usuarios"][s]["amigos"] = list(amigos_remitente)
+                    amigos_rem = list(dict.fromkeys(db["usuarios"][s].get("amigos", []) + [usr]))
+                    db["usuarios"][s]["amigos"] = amigos_rem
                     
                     guardar_datos(db)
                     st.toast(f"¡{s.capitalize()} y tú ahora sois amigos!", icon="🤝")
                     st.rerun()
                     
-                if c3.button("Rechazar ❌", key=f"rec_{s}"):
+                if c3.button("Rechazar ❌", key=f"rec_{idx}_{s}"):
                     usr_data["solicitudes_recibidas"] = [x for x in usr_data["solicitudes_recibidas"] if x != s]
                     guardar_datos(db)
                     st.rerun()
+            st.divider()
 
-                if c3.button("Rechazar ❌", key=f"rec_{s}"):
-                    usr_data["solicitudes_recibidas"].remove(s)
-                    guardar_datos(db)
-                    st.rerun()
-
+        # LISTA DE AMIGOS
         st.subheader("👥 Tu Comunidad")
-        amigos = usr_data.get("amigos", [])
+        
+        # Eliminamos duplicados de la lista antes de iterar
+        amigos = list(dict.fromkeys(usr_data.get("amigos", [])))
+        usr_data["amigos"] = amigos
+        
         if not amigos:
             st.info("Aún no tienes miembros en tu comunidad.")
         else:
-            for a in amigos:
+            for idx, a in enumerate(amigos):
                 data_a = db["usuarios"].get(a, {})
                 with st.expander(f"👤 {a.capitalize()} — Saldo: {data_a.get('creditos', 0)} cr"):
                     max_tr = max(1, usr_data["creditos"])
-                    monto = st.number_input(f"Transferir créditos a {a.capitalize()}", min_value=1, max_value=max_tr, key=f"tr_{a}")
-                    if st.button(f"Enviar a {a.capitalize()}", key=f"btn_tr_{a}"):
+                    
+                    monto = st.number_input(
+                        f"Transferir créditos a {a.capitalize()}", 
+                        min_value=1, 
+                        max_value=max_tr, 
+                        key=f"tr_{idx}_{a}"
+                    )
+                    
+                    if st.button(f"Enviar a {a.capitalize()}", key=f"btn_tr_{idx}_{a}"):
                         if usr_data["creditos"] >= monto:
                             usr_data["creditos"] -= monto
                             data_a["creditos"] += monto
@@ -497,8 +502,13 @@ def renderizar_panel_principal():
                             st.error("No tienes suficientes créditos")
 
                     st.markdown("**Última actividad:**")
-                    for h in reversed(data_a.get("historial", [])[-3:]):
-                        st.caption(f"{h['fecha']} - {h['actividad']}")
+                    hist = data_a.get("historial", [])
+                    if not hist:
+                        st.caption("Sin actividad reciente")
+                    else:
+                        for h in reversed(hist[-3:]):
+                            st.caption(f"{h['fecha']} - {h['actividad']}")
+
 
 # Ejecución
 renderizar_panel_principal()
