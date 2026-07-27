@@ -436,18 +436,38 @@ def renderizar_panel_principal():
             else:
                 st.error("Usuario no válido")
 
+                # --- ACEPTAR SOLICITUDES SIN DUPLICADOS ---
         solis = usr_data.get("solicitudes_recibidas", [])
         if solis:
             st.subheader("📬 Solicitudes Pendientes")
-            for s in solis:
+            # Usamos list(set(...)) para evitar procesar la misma solicitud dos veces
+            for s in list(set(solis)):
                 c1, c2, c3 = st.columns([2, 1, 1])
                 c1.write(f"👤 **{s.capitalize()}**")
+                
                 if c2.button("Aceptar ✅", key=f"ac_{s}"):
-                    usr_data["solicitudes_recibidas"].remove(s)
-                    usr_data.setdefault("amigos", []).append(s)
-                    db["usuarios"][s].setdefault("amigos", []).append(usr)
+                    # 1. Quitar de solicitudes pendientes
+                    usr_data["solicitudes_recibidas"] = [x for x in usr_data["solicitudes_recibidas"] if x != s]
+                    
+                    # 2. Añadir a amigos evitando duplicados (usando set)
+                    amigos_actuales = set(usr_data.get("amigos", []))
+                    amigos_actuales.add(s)
+                    usr_data["amigos"] = list(amigos_actuales)
+                    
+                    # 3. Añadir en el perfil del amigo remitente (también sin duplicados)
+                    amigos_remitente = set(db["usuarios"][s].get("amigos", []))
+                    amigos_remitente.add(usr)
+                    db["usuarios"][s]["amigos"] = list(amigos_remitente)
+                    
+                    guardar_datos(db)
+                    st.toast(f"¡{s.capitalize()} y tú ahora sois amigos!", icon="🤝")
+                    st.rerun()
+                    
+                if c3.button("Rechazar ❌", key=f"rec_{s}"):
+                    usr_data["solicitudes_recibidas"] = [x for x in usr_data["solicitudes_recibidas"] if x != s]
                     guardar_datos(db)
                     st.rerun()
+
                 if c3.button("Rechazar ❌", key=f"rec_{s}"):
                     usr_data["solicitudes_recibidas"].remove(s)
                     guardar_datos(db)
