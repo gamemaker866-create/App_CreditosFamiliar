@@ -140,6 +140,47 @@ def guardar_datos(datos):
         st.error(f"Error guardando datos en Supabase: {e}")
 
 # -------------------------------------------------------------------
+# DIÁLOGO DE TARJETA (Definido globalmente para evitar saltos de página)
+# -------------------------------------------------------------------
+@st.dialog("📜 Tarjeta de Recompensa / Regla")
+def dialog_tarjeta(idx_hist, usr_nombre, db_ref):
+    usr_data = db_ref["usuarios"][usr_nombre]
+    item_hist = usr_data["historial"][idx_hist]
+    ya_usado = item_hist.get("usado", False)
+
+    st.markdown(f"### 👤 Usuario: **{usr_nombre.capitalize()}**")
+    st.divider()
+
+    if ya_usado:
+        estilo = "background: #e0e0e0; color: #616161; border: 2px dashed #9e9e9e;"
+        texto = "✅ ¡ESTA RECOMPENSA YA HA SIDO USADA / COMPLETADA!"
+    else:
+        estilo = "background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #2c3e50;"
+        texto = "🎉 ¡Vale oficial canjeado y activo!"
+
+    st.markdown(
+        f"""
+        <div style="{estilo} padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.15); margin: 10px 0;">
+            <h2 style="margin:0;">{item_hist['actividad']}</h2>
+            <p style="margin-top: 15px; font-weight: bold; font-size: 1.1em;">{texto}</p>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
+    st.caption(f"📅 **Fecha de activación:** {item_hist['fecha']}")
+
+    if st.button("Marcar como Usado ✅", use_container_width=True, disabled=ya_usado, type="primary"):
+        usr_data["historial"][idx_hist]["usado"] = True
+        guardar_datos(db_ref)
+        st.toast("¡Recompensa completada!", icon="✔")
+        st.rerun()
+
+    st.divider()
+    if st.button("Cerrar tarjeta ❌", use_container_width=True):
+        st.session_state.tarjeta_activa = None
+        st.rerun()
+
+# -------------------------------------------------------------------
 # GESTIÓN DE SESIÓN Y LOGIN
 # -------------------------------------------------------------------
 if "usuario" not in st.session_state:
@@ -214,44 +255,6 @@ def renderizar_panel_principal():
         st.metric("Saldo Actual", f"{usr_data['creditos']} cr")
         st.divider()
 
-        # --- DEFINICIÓN DE LA TARJETA EMERGENTE (DIALOG) ---
-        @st.dialog("📜 Tarjeta de Recompensa / Regla")
-        def dialog_tarjeta(idx_hist):
-            item_hist = usr_data["historial"][idx_hist]
-            ya_usado = item_hist.get("usado", False)
-
-            st.markdown(f"### 👤 Usuario: **{usr.capitalize()}**")
-            st.divider()
-
-            if ya_usado:
-                estilo = "background: #e0e0e0; color: #616161; border: 2px dashed #9e9e9e;"
-                texto = "✅ ¡ESTA RECOMPENSA YA HA SIDO USADA / COMPLETADA!"
-            else:
-                estilo = "background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #2c3e50;"
-                texto = "🎉 ¡Vale oficial canjeado y activo!"
-
-            st.markdown(
-                f"""
-                <div style="{estilo} padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.15); margin: 10px 0;">
-                    <h2 style="margin:0;">{item_hist['actividad']}</h2>
-                    <p style="margin-top: 15px; font-weight: bold; font-size: 1.1em;">{texto}</p>
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
-            st.caption(f"📅 **Fecha de activación:** {item_hist['fecha']}")
-
-            if st.button("Marcar como Usado ✅", use_container_width=True, disabled=ya_usado, type="primary"):
-                usr_data["historial"][idx_hist]["usado"] = True
-                guardar_datos(db)
-                st.toast("¡Recompensa completada!", icon="✔")
-                st.rerun()
-
-            st.divider()
-            if st.button("Cerrar tarjeta ❌", use_container_width=True):
-                st.session_state.tarjeta_activa = None
-                st.rerun()
-
         # --- HISTORIAL DE ACTIVIDAD ---
         st.subheader("📜 Historial de Actividad")
         if not usr_data["historial"]:
@@ -283,7 +286,7 @@ def renderizar_panel_principal():
         if "tarjeta_activa" in st.session_state and st.session_state.tarjeta_activa is not None:
             idx_sel = st.session_state.tarjeta_activa
             if 0 <= idx_sel < len(usr_data["historial"]):
-                dialog_tarjeta(idx_sel)
+                dialog_tarjeta(idx_sel, usr, db)
             else:
                 st.session_state.tarjeta_activa = None
 
