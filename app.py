@@ -359,6 +359,7 @@ def renderizar_panel_principal():
             if not sugerencias_lista:
                 st.info("No hay sugerencias registradas por ahora.")
             else:
+                pass
     # 3. MI PERFIL
     with tab_perfil:
         st.header(f"👤 Perfil de {usr.capitalize()}")
