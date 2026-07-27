@@ -208,6 +208,7 @@ def renderizar_panel_principal():
     with tab_perfil:
                 # --- TARJETA EMERGENTE (MODAL) ---
                 # --- CONTROL DE ESTADO DE LA TARJETA ---
+                # --- TARJETA EMERGENTE PERSISTENTE CON ESTADO DE COMPLETADO ---
         if "tarjeta_activa" not in st.session_state:
             st.session_state.tarjeta_activa = None
 
@@ -217,39 +218,57 @@ def renderizar_panel_principal():
             if not data:
                 return
             
+            # Buscar el elemento en el historial real para ver si ya fue usado
+            idx_hist = data["idx_historial"]
+            item_hist = usr_data["historial"][idx_hist]
+            ya_usado = item_hist.get("usado", False)
+
             st.markdown(f"### 👤 Usuario: **{data['usuario'].capitalize()}**")
             st.divider()
             
-            # Diseño estilo tarjeta de juego
+            # Estilos según el estado (Activa vs Completada)
+            if ya_usado:
+                estilo_caja = "background: #e0e0e0; color: #616161; border: 2px dashed #9e9e9e;"
+                texto_estado = "✅ ¡ESTA RECOMPENSA YA HA SIDO USADA / COMPLETADA!"
+            else:
+                estilo_caja = "background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #2c3e50;"
+                texto_estado = "🎉 ¡Vale oficial canjeado y activo!"
+
             st.markdown(
                 f"""
                 <div style="
-                    background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+                    {estilo_caja}
                     padding: 25px;
                     border-radius: 15px;
                     text-align: center;
-                    color: #2c3e50;
                     box-shadow: 0 4px 15px rgba(0,0,0,0.15);
                     margin: 10px 0;
                 ">
-                    <h2 style="margin:0; color: #2c3e50;">{data['actividad']}</h2>
+                    <h2 style="margin:0;">{item_hist['actividad']}</h2>
                     <p style="margin-top: 15px; font-weight: bold; font-size: 1.1em;">
-                        ¡Vale oficial canjeado y activo!
+                        {texto_estado}
                     </p>
                 </div>
                 """, 
                 unsafe_allow_html=True
             )
-            st.caption(f"📅 **Fecha de activación:** {data['fecha']}")
-            st.info("👉 Enseña esta pantalla para hacer valer tu recompensa o regla.")
+            st.caption(f"📅 **Fecha de activación:** {item_hist['fecha']}")
             
+            # Botón para marcar como usado (se deshabilita si ya fue marcado)
+            if st.button("Marcar como Usado ✅", use_container_width=True, disabled=ya_usado, type="primary"):
+                item_hist["usado"] = True
+                guardar_datos(db)
+                st.toast("¡Recompensa marcada como completada!", icon="✔")
+                st.rerun()
+
+            st.divider()
             if st.button("Cerrar tarjeta ❌", use_container_width=True):
                 st.session_state.tarjeta_activa = None
                 st.rerun()
 
-        # Si hay una tarjeta activa guardada, la mantenemos abierta incluso con el autorefresco
         if st.session_state.tarjeta_activa:
             mostrar_tarjeta()
+
 
         # --- HISTORIAL CON BOTONES ---
         st.subheader("📜 Historial de Actividad")
