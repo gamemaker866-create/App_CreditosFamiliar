@@ -359,17 +359,91 @@ def renderizar_panel_principal():
             if not sugerencias_lista:
                 st.info("No hay sugerencias registradas por ahora.")
             else:
-                for idx, sug in enumerate(list(sugerencias_lista)):
-                    col_s1, col_s2 = st.columns([4, 1])
-                    with col_s1:
-                        st.markdown(f"**👤 {sug['usuario']}** — *{sug['fecha']}*")
-                        st.write(f"💬 \"{sug['texto']}\"")
-                    with col_s2:
-                        if st.button("Borrar ❌", key=f"del_sug_{idx}"):
-                            db["sugerencias"].remove(sug)
-                            guardar_datos(db)
+    # 3. MI PERFIL
+    with tab_perfil:
+        st.header(f"👤 Perfil de {usr.capitalize()}")
+        st.metric("Saldo Actual", f"{usr_data['creditos']} cr")
+        st.divider()
+
+        # --- DEFINICIÓN DE LA TARJETA EMERGENTE (DIALOG) ---
+        @st.dialog("📜 Tarjeta de Recompensa / Regla")
+        def dialog_tarjeta(idx_hist):
+            item_hist = usr_data["historial"][idx_hist]
+            ya_usado = item_hist.get("usado", False)
+
+            st.markdown(f"### 👤 Usuario: **{usr.capitalize()}**")
+            st.divider()
+
+            # Diseños dinámicos
+            if ya_usado:
+                estilo = "background: #e0e0e0; color: #616161; border: 2px dashed #9e9e9e;"
+                texto = "✅ ¡ESTA RECOMPENSA YA HA SIDO USADA / COMPLETADA!"
+            else:
+                estilo = "background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #2c3e50;"
+                texto = "🎉 ¡Vale oficial canjeado y activo!"
+
+            st.markdown(
+                f"""
+                <div style="{estilo} padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.15); margin: 10px 0;">
+                    <h2 style="margin:0;">{item_hist['actividad']}</h2>
+                    <p style="margin-top: 15px; font-weight: bold; font-size: 1.1em;">{texto}</p>
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
+            st.caption(f"📅 **Fecha de activación:** {item_hist['fecha']}")
+
+            # Botón para marcar como usado (irreversible)
+            if st.button("Marcar como Usado ✅", use_container_width=True, disabled=ya_usado, type="primary"):
+                usr_data["historial"][idx_hist]["usado"] = True
+                guardar_datos(db)
+                st.toast("¡Recompensa completada!", icon="✔")
+                st.rerun()
+
+            st.divider()
+            if st.button("Cerrar tarjeta ❌", use_container_width=True):
+                st.session_state.tarjeta_activa = None
+                st.rerun()
+
+        # --- HISTORIAL DE ACTIVIDAD ---
+        st.subheader("📜 Historial de Actividad")
+        if not usr_data["historial"]:
+            st.info("Sin movimientos recientes")
+        else:
+            st.caption("Pulsa sobre cualquier canje para abrir su tarjeta oficial:")
+
+            # Mapeamos los elementos con sus índices reales en la lista
+            elementos_historial = list(enumerate(usr_data["historial"]))
+
+            for idx_real, item in reversed(elementos_historial[-10:]):
+                c = item.get("coste", 0)
+                es_gasto = c > 0
+                signo = f"-{c} cr" if es_gasto else (f"+{abs(c)} cr" if c < 0 else "0 cr")
+                usado = item.get("usado", False)
+
+                col_h1, col_h2 = st.columns([3, 1])
+                with col_h1:
+                    if es_gasto:
+                        etiqueta = f"✅ {item['actividad']} (Usado)" if usado else f"🎴 {item['actividad']}"
+                        
+                        # Al pulsar, asignamos el índice y forzamos la apertura directa
+                        if st.button(etiqueta, key=f"btn_card_{idx_real}", use_container_width=True):
+                            st.session_state.tarjeta_activa = idx_real
                             st.rerun()
-                    st.divider()
+                    else:
+                        st.text(f"💪 {item['actividad']}")
+                with col_h2:
+                    st.caption(f"`{signo}`\n{item['fecha']}")
+                st.divider()
+
+        # --- MOSTRAR DIÁLOGO SI HAY UNA TARJETA SELECCIONADA ---
+        if "tarjeta_activa" in st.session_state and st.session_state.tarjeta_activa is not None:
+            idx_sel = st.session_state.tarjeta_activa
+            if 0 <= idx_sel < len(usr_data["historial"]):
+                dialog_tarjeta(idx_sel)
+            else:
+                st.session_state.tarjeta_activa = None
+
 
     # 2. GANAR CRÉDITOS
     with tab_ganar:
