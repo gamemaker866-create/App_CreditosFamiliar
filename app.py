@@ -42,7 +42,7 @@ CATALOGO_GASTAR = [
     {"id": 1, "emoji": "🛋️", "nombre": "Librarte de una tarea por 1 día", "coste": 30, "limite_diario": 1},
     {"id": 2, "emoji": "📺", "nombre": "Ver la tele (1h)", "coste": 15, "limite_diario": 2},
     {"id": 3, "emoji": "🃏", "nombre": "Cambiar de juego/regla", "coste": 30, "limite_diario": 2},
-    {"id": 4, "emoji": "🍫", "nombre": "Comer dulce", "coste": 5, "limite_diario": 3},
+    {"id": 4, "emoji": "🍫", "nombre": "Comer dulce", "coste": 5, "limite_diario": 2},
     {"id": 5, "emoji": "🎯", "nombre": "Elegir el primer turno", "coste": 10, "limite_diario": 1},
     {"id": 6, "emoji": "🎵", "nombre": "Elegir musica (1h)", "coste": 10, "limite_diario": 2},
     {"id": 7, "emoji": "🧊", "nombre": "Camarero por un momento", "coste": 20, "limite_diario": 1},
