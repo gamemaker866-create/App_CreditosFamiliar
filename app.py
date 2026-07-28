@@ -52,7 +52,7 @@ CATALOGO_GASTAR = [
     {"id": 11, "emoji": "🎲", "nombre": "Elegir el juego de mesa de hoy", "coste": 20, "limite_diario": 1},
     {"id": 12, "emoji": "🪞", "nombre": "Carta espejo: Rebotar un favor", "coste": 25, "limite_diario": 1},
     {"id": 13, "emoji": "🤏", "nombre": "Impuesto del 10% de snack", "coste": 10, "limite_diario": 2},
-    {"id": 14, "emoji": "🏆", "nombre": "Pase VIP: Fin de semana libre", "coste": 210, "limite_diario": 1, "destacado": True},
+    {"id": 14, "emoji": "🏆", "nombre": "Pase VIP: Fin de semana libre", "coste": 280, "limite_diario": 1, "destacado": True},
     {"id": 15, "emoji": "📜", "nombre": "Crear una regla absurda (1h)", "coste": 15, "limite_diario": 1},
     {"id": 16, "emoji": "⚖️", "nombre": "Voto de calidad en empates", "coste": 30, "limite_diario": 1},
     {"id": 17, "emoji": "🛋️", "nombre": "Reclamar la mejor manta/cojín", "coste": 10, "limite_diario": 1},
