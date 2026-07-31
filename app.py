@@ -116,6 +116,7 @@ def cargar_datos():
             
             datos.setdefault("sugerencias", [])
             datos.setdefault("reto_flash", None)
+            datos.setdefault("subasta_activa", None)
             datos.setdefault("usuarios", {})
             datos.setdefault("catalogo_gastar", CATALOGO_GASTAR)
             datos.setdefault("catalogo_ganar", CATALOGO_GANAR)
@@ -221,10 +222,42 @@ def renderizar_panel_principal():
 
     st.metric(label="Saldo Disponible", value=f"{usr_data['creditos']} Créditos")
 
-    # --- BANNER DE RETO FLASH / DESAFÍO GLOBAL ---
+    # Banner Reto Flash
     reto_actual = db.get("reto_flash")
     if reto_actual and reto_actual.get("activo"):
         st.info(f"🎯 **RETO FLASH DEL DÍA:** {reto_actual['texto']} \n\n *(Recompensa especial: +{reto_actual['recompensa']} cr)*")
+
+    # Banner Subasta Activa
+    subasta = db.get("subasta_activa")
+    if subasta and subasta.get("activa"):
+        with st.container(border=True):
+            st.subheader(f"🔨 Subasta Activa: {subasta['item']}")
+            if subasta['max_postor']:
+                st.markdown(f"🏆 **Mayor puja actual:** `{subasta['puja_actual']} cr` por **{subasta['max_postor'].capitalize()}**")
+            else:
+                st.markdown(f"💰 **Puja de salida:** `{subasta['puja_actual']} cr` (¡Nadie ha pujado aún!)")
+
+            usuario_bloqueado_sub, _ = esta_bloqueado(usr_data)
+            puja_minima = subasta['puja_actual'] + 1
+            
+            c_sub1, c_sub2 = st.columns([2, 1])
+            with c_sub1:
+                nueva_puja = st.number_input(
+                    "Tu puja", 
+                    min_value=puja_minima, 
+                    max_value=max(puja_minima, usr_data["creditos"]), 
+                    step=5,
+                    key="input_puja_sub"
+                )
+            with c_sub2:
+                st.write("") 
+                st.write("")
+                if st.button("Pujar 🔨", use_container_width=True, disabled=usuario_bloqueado_sub or usr_data["creditos"] < puja_minima):
+                    subasta["puja_actual"] = int(nueva_puja)
+                    subasta["max_postor"] = usr
+                    guardar_datos(db)
+                    st.toast(f"¡Has pujado {nueva_puja} cr!", icon="🔨")
+                    st.rerun()
 
     usuario_bloqueado, fecha_fin_bloqueo = esta_bloqueado(usr_data)
 
@@ -504,7 +537,7 @@ def renderizar_panel_principal():
     if usr == "eric" and tab_admin is not None:
         with tab_admin:
             st.header("⚙️ Consola de Administración")
-            st.caption("Acceso exclusivo para moderar créditos, retos globales y catálogos.")
+            st.caption("Acceso exclusivo para moderar créditos, subastas y catálogos.")
 
             lista_usuarios = list(db["usuarios"].keys())
             u_mod = st.selectbox("Selecciona un usuario a gestionar", lista_usuarios, key="adm_u_mod")
@@ -542,7 +575,72 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 2: BLOQUEO TEMPORAL DE CUENTA ---
+            # --- SECCIÓN 2: SUBASTAS Y PUJAS ---
+            st.subheader("🔨 Gestión de Subastas Semanales")
+            subasta_act = db.get("subasta_activa")
+
+            if subasta_act and subasta_act.get("activa"):
+                st.warning(f"🔨 **Subasta en curso:** {subasta_act['item']}")
+                st.write(f"• Puja actual: `{subasta_act['puja_actual']} cr`")
+                st.write(f"• Liderando: **{subasta_act['max_postor'].capitalize() if subasta_act['max_postor'] else 'Nadie'}**")
+
+                c_sub_a1, c_sub_a2 = st.columns(2)
+                with c_sub_a1:
+                    if st.button("🏁 Finalizar y Adjudicar Premio", type="primary", use_container_width=True):
+                        ganador = subasta_act.get("max_postor")
+                        precio_final = subasta_act.get("puja_actual", 0)
+                        item_nombre = subasta_act.get("item")
+
+                        if ganador and ganador in db["usuarios"]:
+                            usr_ganador = db["usuarios"][ganador]
+                            if usr_ganador["creditos"] >= precio_final:
+                                usr_ganador["creditos"] -= precio_final
+                                f_act = obtener_fecha_hora()
+                                usr_ganador.setdefault("historial", []).append({
+                                    "actividad": f"🏆 Ganador Subasta: {item_nombre}",
+                                    "coste": precio_final,
+                                    "fecha": f_act
+                                })
+                                db["subasta_activa"] = None
+                                guardar_datos(db)
+                                st.success(f"¡Subasta finalizada! {ganador.capitalize()} gana {item_nombre} por {precio_final} cr.")
+                                st.rerun()
+                            else:
+                                st.error(f"{ganador.capitalize()} ya no tiene créditos suficientes para pagar ({precio_final} cr).")
+                        else:
+                            db["subasta_activa"] = None
+                            guardar_datos(db)
+                            st.info("Subasta cancelada sin ganador.")
+                            st.rerun()
+
+                with c_sub_a2:
+                    if st.button("❌ Cancelar Subasta (Sin Ganador)", use_container_width=True):
+                        db["subasta_activa"] = None
+                        guardar_datos(db)
+                        st.info("Subasta cancelada.")
+                        st.rerun()
+            else:
+                st.caption("Crea una subasta especial para que los usuarios compitan por un premio.")
+                item_subasta = st.text_input("Recompensa a subastar", placeholder="Ej: Elegir el menú del fin de semana", key="adm_sub_item")
+                puja_salida = st.number_input("Precio de salida (cr)", min_value=5, value=20, step=5, key="adm_sub_salida")
+
+                if st.button("🚀 Lanzar Nueva Subasta", type="primary"):
+                    if item_subasta.strip():
+                        db["subasta_activa"] = {
+                            "item": item_subasta.strip(),
+                            "puja_actual": int(puja_salida),
+                            "max_postor": None,
+                            "activa": True
+                        }
+                        guardar_datos(db)
+                        st.success("¡Subasta publicada!")
+                        st.rerun()
+                    else:
+                        st.error("Introduce la descripción del premio a subastar.")
+
+            st.divider()
+
+            # --- SECCIÓN 3: BLOQUEO TEMPORAL DE CUENTA ---
             st.subheader("🔒 Bloquear / Desbloquear Cuenta")
             esta_bl, f_fin_bl = esta_bloqueado(usr_target)
             
@@ -575,7 +673,7 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 3: RETOS DIARIOS / DESAFÍOS (NUEVO) ---
+            # --- SECCIÓN 4: RETOS DIARIOS / DESAFÍOS ---
             st.subheader("🎯 Retos Diarios / Desafíos de Administrador")
             st.caption("Publica una misión flash que verán todos los usuarios en la pantalla principal.")
             
@@ -605,7 +703,7 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 4: GESTOR Y EDITOR DE CATÁLOGOS (NUEVO) ---
+            # --- SECCIÓN 5: GESTOR Y EDITOR DE CATÁLOGOS ---
             st.subheader("🎨 Gestor y Editor de Catálogos")
             tab_cat1, tab_cat2 = st.tabs(["➕ Añadir Elemento", "✏️ Modificar / Eliminar Existente"])
 
@@ -713,7 +811,7 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 5: AUDITORÍA DE ACTIVIDAD INTEGRAL (NUEVO) ---
+            # --- SECCIÓN 6: AUDITORÍA DE ACTIVIDAD INTEGRAL ---
             st.subheader("📜 Auditoría Global de Actividad")
             st.caption("Muestra todos los movimientos registrados en la app por orden cronológico.")
 
@@ -741,7 +839,7 @@ def renderizar_panel_principal():
                         st.caption(f"`{signo}` | {act['fecha']}")
                     st.divider()
 
-            # --- SECCIÓN 6: SUGERENCIAS RECIBIDAS ---
+            # --- SECCIÓN 7: SUGERENCIAS RECIBIDAS ---
             st.subheader("📥 Sugerencias Recibidas")
             if st.button("Vaciar todas las sugerencias 🗑️", key="btn_vaciar_sug_adm"):
                 db["sugerencias"] = []
