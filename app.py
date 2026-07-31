@@ -117,8 +117,8 @@ def cargar_datos():
             
             datos.setdefault("sugerencias", [])
             datos.setdefault("usuarios", {})
-            datos.setdefault("catalogo_gastar", CATALOGO_GASTAR_BASE)
-            datos.setdefault("catalogo_ganar", CATALOGO_GANAR_BASE)
+            datos.setdefault("catalogo_gastar", CATALOGO_GASTAR)
+            datos.setdefault("catalogo_ganar", CATALOGO_GANAR)
             
             if not datos["usuarios"]:
                 datos = DATOS_INICIALES
