@@ -1,4 +1,5 @@
 import streamlit as st
+import random
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from supabase import create_client
