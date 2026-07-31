@@ -467,55 +467,55 @@ def renderizar_panel_principal():
                     st.error("No hay premios configurados en la caja misteriosa por el administrador.")
                 else:
     # 1. Convertimos y sanitizamos la lista de pesos a enteros garantizados
-    pesos = []
-    for p in premios_disponibles:
-        try:
-            # Convertimos a número y evitamos ceros o negativos
-            val_prob = int(p.get("probabilidad", 10))
-            pesos.append(max(1, val_prob))
-        except (ValueError, TypeError):
-            pesos.append(10) # Peso de respaldo por si el dato viene corrupto
-
-    # 2. Ahora random.choices se ejecuta sobre una lista 100% limpia de números
-    premio_ganado = random.choices(premios_disponibles, weights=pesos, k=1)[0]
-    
-    usr_data["creditos"] -= 20
-    usr_data["ultima_caja_misterio"] = fecha_hoy
-    f_act = obtener_fecha_hora()
-
-    # Cobro inicial de la apertura
-    usr_data.setdefault("historial", []).append({
-        "actividad": "🎁 Apertura de Caja Misteriosa",
-        "coste": 20,
-        "fecha": f_act
-    })
-
-    tipo = premio_ganado.get("tipo", "mensaje")
-    emoji = premio_ganado.get("emoji", "🎁")
-    nombre_premio = premio_ganado.get("nombre", "")
-    texto_detalle = premio_ganado.get("texto", "")
-
-    msg_pantalla = ""
-
-    if tipo == "creditos":
-        val_cr = premio_ganado.get("valor", 0)
-        usr_data["creditos"] += val_cr
-        signo_hist = -val_cr
-        msg_hist = f"🎁 Premio Misterioso: {emoji} {nombre_premio}"
-        usr_data["historial"].append({"actividad": msg_hist, "coste": signo_hist, "fecha": f_act})
-        msg_pantalla = f"¡Obtienes {val_cr} créditos!" if val_cr >= 0 else f"¡Sufres una penalización de {val_cr} créditos!"
-
-    elif tipo == "vale":
-        # Se registra como vale canjeable en el historial (como comprar en la tienda gratis)
-        desc_completa = f"{emoji} {nombre_premio}" + (f": {texto_detalle}" if texto_detalle else "")
-        usr_data["historial"].append({
-            "actividad": desc_completa,
-            "coste": 0,
-            "es_vale": True,
-            "usado": False,
-            "fecha": f_act
-        })
-        msg_pantalla = f"🎟️ ¡Vale ganado! Revisa tu **Perfil** para verlo en tus tarjetas de recompensa activos."
+                    pesos = []
+                    for p in premios_disponibles:
+                        try:
+                            # Convertimos a número y evitamos ceros o negativos
+                            val_prob = int(p.get("probabilidad", 10))
+                            pesos.append(max(1, val_prob))
+                        except (ValueError, TypeError):
+                            pesos.append(10) # Peso de respaldo por si el dato viene corrupto
+                
+                    # 2. Ahora random.choices se ejecuta sobre una lista 100% limpia de números
+                    premio_ganado = random.choices(premios_disponibles, weights=pesos, k=1)[0]
+                    
+                    usr_data["creditos"] -= 20
+                    usr_data["ultima_caja_misterio"] = fecha_hoy
+                    f_act = obtener_fecha_hora()
+                
+                    # Cobro inicial de la apertura
+                    usr_data.setdefault("historial", []).append({
+                        "actividad": "🎁 Apertura de Caja Misteriosa",
+                        "coste": 20,
+                        "fecha": f_act
+                    })
+                
+                    tipo = premio_ganado.get("tipo", "mensaje")
+                    emoji = premio_ganado.get("emoji", "🎁")
+                    nombre_premio = premio_ganado.get("nombre", "")
+                    texto_detalle = premio_ganado.get("texto", "")
+                
+                    msg_pantalla = ""
+                
+                    if tipo == "creditos":
+                        val_cr = premio_ganado.get("valor", 0)
+                        usr_data["creditos"] += val_cr
+                        signo_hist = -val_cr
+                        msg_hist = f"🎁 Premio Misterioso: {emoji} {nombre_premio}"
+                        usr_data["historial"].append({"actividad": msg_hist, "coste": signo_hist, "fecha": f_act})
+                        msg_pantalla = f"¡Obtienes {val_cr} créditos!" if val_cr >= 0 else f"¡Sufres una penalización de {val_cr} créditos!"
+                
+                    elif tipo == "vale":
+                        # Se registra como vale canjeable en el historial (como comprar en la tienda gratis)
+                        desc_completa = f"{emoji} {nombre_premio}" + (f": {texto_detalle}" if texto_detalle else "")
+                        usr_data["historial"].append({
+                            "actividad": desc_completa,
+                            "coste": 0,
+                            "es_vale": True,
+                            "usado": False,
+                            "fecha": f_act
+                        })
+                        msg_pantalla = f"🎟️ ¡Vale ganado! Revisa tu **Perfil** para verlo en tus tarjetas de recompensa activos."
                     elif tipo == "mensaje":
                         usr_data["historial"].append({
                             "actividad": f"🎁 Mensaje Misterioso: {emoji} {nombre_premio}",
