@@ -94,6 +94,21 @@ CATALOGO_GANAR = [
 def obtener_fecha_hora():
     return datetime.now(ZoneInfo("Europe/Madrid")).strftime("%d/%m/%Y %H:%M")
 
+def esta_bloqueado(usr_data):
+    """Comprueba si el usuario tiene una sanción de bloqueo activa"""
+    bloqueado_hasta_str = usr_data.get("bloqueado_hasta")
+    if not bloqueado_hasta_str:
+        return False, None
+    try:
+        f_bloqueo = datetime.fromisoformat(bloqueado_hasta_str)
+        ahora = datetime.now(ZoneInfo("Europe/Madrid"))
+        if ahora < f_bloqueo:
+            return True, f_bloqueo.strftime("%d/%m/%Y a las %H:%M")
+        else:
+            return False, None
+    except Exception:
+        return False, None
+
 def cargar_datos():
     try:
         response = supabase.table("estado_app").select("datos").eq("id", 1).execute()
@@ -102,6 +117,8 @@ def cargar_datos():
             
             datos.setdefault("sugerencias", [])
             datos.setdefault("usuarios", {})
+            datos.setdefault("catalogo_gastar", CATALOGO_GASTAR_BASE)
+            datos.setdefault("catalogo_ganar", CATALOGO_GANAR_BASE)
             
             if not datos["usuarios"]:
                 datos = DATOS_INICIALES
@@ -110,6 +127,7 @@ def cargar_datos():
             for u_nombre, u_data in datos["usuarios"].items():
                 u_data["amigos"] = list(dict.fromkeys(u_data.get("amigos", [])))
                 u_data["solicitudes_recibidas"] = list(dict.fromkeys(u_data.get("solicitudes_recibidas", [])))
+                u_data.setdefault("bloqueado_hasta", None)
 
             semana_hoy = datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1]
             if datos.get("semana_actual") != semana_hoy:
@@ -173,7 +191,8 @@ if not st.session_state.usuario:
                     "logros": [],
                     "stock_usado": {},
                     "amigos": [],
-                    "solicitudes_recibidas": []
+                    "solicitudes_recibidas": [],
+                    "bloqueado_hasta": None
                 }
                 guardar_datos(db)
                 st.success("¡Cuenta creada! Ya puedes iniciar sesión.")
@@ -202,15 +221,30 @@ def renderizar_panel_principal():
 
     st.metric(label="Saldo Disponible", value=f"{usr_data['creditos']} Créditos")
 
-    tab_perfil, tab_ganar, tab_tienda, tab_comunidad = st.tabs(["Mi Perfil", "💪 Ganar", "🛒 Gastar", "👥 Comunidad"])
+    # Comprobación de estado de bloqueo del usuario actual
+    usuario_bloqueado, fecha_fin_bloqueo = esta_bloqueado(usr_data)
+
+    nombres_tabs = ["Mi Perfil", "💪 Ganar", "🛒 Gastar", "👥 Comunidad"]
+    if usr == "eric":
+        nombres_tabs.append("⚙️ Panel Admin")
+
+    tabs = st.tabs(nombres_tabs)
+    tab_perfil = tabs[0]
+    tab_ganar = tabs[1]
+    tab_tienda = tabs[2]
+    tab_comunidad = tabs[3]
+    tab_admin = tabs[4] if usr == "eric" else None
 
     # 1. MI PERFIL
     with tab_perfil:
         st.header(f"👤 Perfil de {usr.capitalize()}")
         st.metric("Saldo Actual", f"{usr_data['creditos']} cr")
+        
+        if usuario_bloqueado:
+            st.error(f"🔒 Tu cuenta está **bloqueada temporalmente** hasta el **{fecha_fin_bloqueo}**. No puedes ganar ni gastar créditos.")
+        
         st.divider()
 
-        # --- MOSTRAR TARJETA SELECCIONADA (INLINE/CONTAINER) ---
         if "tarjeta_activa" in st.session_state and st.session_state.tarjeta_activa is not None:
             idx_sel = st.session_state.tarjeta_activa
             if 0 <= idx_sel < len(usr_data["historial"]):
@@ -254,7 +288,6 @@ def renderizar_panel_principal():
             else:
                 st.session_state.tarjeta_activa = None
 
-        # --- HISTORIAL DE ACTIVIDAD ---
         st.subheader("📜 Historial de Actividad")
         if not usr_data["historial"]:
             st.info("Sin movimientos recientes")
@@ -281,10 +314,7 @@ def renderizar_panel_principal():
                     st.caption(f"`{signo}`\n{item['fecha']}")
                 st.divider()
 
-        # SUGERENCIAS
         st.subheader("💡 Enviar una Sugerencia")
-        st.caption("¿Tienes alguna idea para mejorar la app o sugerir tareas/premios?")
-        
         if "sug_key" not in st.session_state:
             st.session_state.sug_key = 0
 
@@ -303,42 +333,24 @@ def renderizar_panel_principal():
                 }
                 db.setdefault("sugerencias", []).append(nueva_sug)
                 guardar_datos(db)
-                
                 st.session_state.sug_key += 1
                 st.toast("✅ Sugerencia enviada correctamente. ¡Muchas gracias!", icon="🎉")
                 st.rerun()
             else:
                 st.warning("Por favor, escribe algo antes de enviar.")
 
-        # VISTA EXCLUSIVA DE SUGERENCIAS PARA ERIC
-        if usr == "eric":
-            st.divider()
-            col_sug_head1, col_sug_head2 = st.columns([3, 1])
-            with col_sug_head1:
-                st.subheader("📥 Sugerencias Recibidas")
-            with col_sug_head2:
-                if db.get("sugerencias") and st.button("Vaciar todas 🗑️", key="btn_vaciar_sug"):
-                    db["sugerencias"] = []
-                    guardar_datos(db)
-                    st.rerun()
-
-            sugerencias_lista = db.get("sugerencias", [])
-            if not sugerencias_lista:
-                st.info("No hay sugerencias registradas por ahora.")
-            else:
-                for sug in reversed(sugerencias_lista):
-                    st.markdown(f"**👤 {sug['usuario']}** ({sug['fecha']}):\n> {sug['texto']}")
-                    st.divider()
-
     # 2. GANAR CRÉDITOS
     with tab_ganar:
         st.subheader("Completa tareas para ganar créditos")
+        if usuario_bloqueado:
+            st.error(f"🔒 **Cuenta bloqueada.** No puedes realizar tareas hasta el **{fecha_fin_bloqueo}**.")
         
         search_ganar = st.text_input("🔍 Buscar tarea...", key="search_ganar").strip().lower()
         fecha_hoy = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
         stock = usr_data.setdefault("stock_usado", {}).setdefault(fecha_hoy, {})
 
-        tareas_filtradas = [t for t in CATALOGO_GANAR if search_ganar in t["nombre"].lower()]
+        cat_ganar = db.get("catalogo_ganar", CATALOGO_GANAR_BASE)
+        tareas_filtradas = [t for t in cat_ganar if search_ganar in t["nombre"].lower()]
 
         if not tareas_filtradas:
             st.info("No se encontraron tareas con esa búsqueda.")
@@ -346,12 +358,13 @@ def renderizar_panel_principal():
             for item in tareas_filtradas:
                 usados = stock.get(str(item["id"]), 0)
                 disp = item["limite_diario"] - usados
+                puede_hacer = (disp > 0) and (not usuario_bloqueado)
                 
                 c1, c2 = st.columns([3, 1])
                 with c1:
                     st.markdown(f"**{item['emoji']} {item['nombre']}** \n`+{item['recompensa']} cr` | Disponibles: {disp}/{item['limite_diario']}")
                 with c2:
-                    if st.button("Completar", key=f"ganar_{item['id']}", disabled=(disp <= 0)):
+                    if st.button("Completar", key=f"ganar_{item['id']}", disabled=not puede_hacer):
                         usr_data["creditos"] += item["recompensa"]
                         stock[str(item["id"])] = usados + 1
                         usr_data["historial"].append({
@@ -367,12 +380,15 @@ def renderizar_panel_principal():
     # 3. GASTAR CRÉDITOS
     with tab_tienda:
         st.subheader("Canjea tus créditos por recompensas")
-        
+        if usuario_bloqueado:
+            st.error(f"🔒 **Cuenta bloqueada.** No puedes canjear recompensas hasta el **{fecha_fin_bloqueo}**.")
+            
         search_gastar = st.text_input("🔍 Buscar recompensa...", key="search_gastar").strip().lower()
         fecha_hoy = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
         stock = usr_data.setdefault("stock_usado", {}).setdefault(fecha_hoy, {})
 
-        recompensas_filtradas = [r for r in CATALOGO_GASTAR if search_gastar in r["nombre"].lower()]
+        cat_gastar = db.get("catalogo_gastar", CATALOGO_GASTAR_BASE)
+        recompensas_filtradas = [r for r in cat_gastar if search_gastar in r["nombre"].lower()]
 
         if not recompensas_filtradas:
             st.info("No se encontraron recompensas con esa búsqueda.")
@@ -380,7 +396,7 @@ def renderizar_panel_principal():
             for item in recompensas_filtradas:
                 usados = stock.get(str(item["id"]), 0)
                 disp = item["limite_diario"] - usados
-                puedes_comprar = disp > 0 and usr_data["creditos"] >= item["coste"]
+                puedes_comprar = disp > 0 and usr_data["creditos"] >= item["coste"] and (not usuario_bloqueado)
                 es_destacado = item.get("destacado", False)
                 
                 c1, c2 = st.columns([3, 1])
@@ -429,7 +445,6 @@ def renderizar_panel_principal():
 
         st.divider()
 
-        # SOLICITUDES PENDIENTES
         solis = usr_data.get("solicitudes_recibidas", [])
         if solis:
             st.subheader("📬 Solicitudes Pendientes")
@@ -439,13 +454,8 @@ def renderizar_panel_principal():
                 
                 if c2.button("Aceptar ✅", key=f"ac_{idx}_{s}"):
                     usr_data["solicitudes_recibidas"] = [x for x in usr_data["solicitudes_recibidas"] if x != s]
-                    
-                    amigos_usr = list(dict.fromkeys(usr_data.get("amigos", []) + [s]))
-                    usr_data["amigos"] = amigos_usr
-                    
-                    amigos_rem = list(dict.fromkeys(db["usuarios"][s].get("amigos", []) + [usr]))
-                    db["usuarios"][s]["amigos"] = amigos_rem
-                    
+                    usr_data["amigos"] = list(dict.fromkeys(usr_data.get("amigos", []) + [s]))
+                    db["usuarios"][s]["amigos"] = list(dict.fromkeys(db["usuarios"][s].get("amigos", []) + [usr]))
                     guardar_datos(db)
                     st.toast(f"¡{s.capitalize()} y tú ahora sois amigos!", icon="🤝")
                     st.rerun()
@@ -456,7 +466,6 @@ def renderizar_panel_principal():
                     st.rerun()
             st.divider()
 
-        # LISTA DE AMIGOS
         st.subheader("👥 Tu Comunidad")
         amigos = list(dict.fromkeys(usr_data.get("amigos", [])))
         usr_data["amigos"] = amigos
@@ -468,15 +477,13 @@ def renderizar_panel_principal():
                 data_a = db["usuarios"].get(a, {})
                 with st.expander(f"👤 {a.capitalize()} — Saldo: {data_a.get('creditos', 0)} cr"):
                     max_tr = max(1, usr_data["creditos"])
-                    
                     monto = st.number_input(
                         f"Transferir créditos a {a.capitalize()}", 
                         min_value=1, 
                         max_value=max_tr, 
                         key=f"tr_{idx}_{a}"
                     )
-                    
-                    if st.button(f"Enviar a {a.capitalize()}", key=f"btn_tr_{idx}_{a}"):
+                    if st.button(f"Enviar a {a.capitalize()}", key=f"btn_tr_{idx}_{a}", disabled=usuario_bloqueado):
                         if usr_data["creditos"] >= monto:
                             usr_data["creditos"] -= monto
                             data_a["creditos"] += monto
@@ -489,13 +496,152 @@ def renderizar_panel_principal():
                         else:
                             st.error("No tienes suficientes créditos")
 
-                    st.markdown("**Última actividad:**")
-                    hist = data_a.get("historial", [])
-                    if not hist:
-                        st.caption("Sin actividad reciente")
+    # 5. PESTAÑA EXCLUSIVA DE ADMIN (solo visible para 'eric')
+    if usr == "eric" and tab_admin is not None:
+        with tab_admin:
+            st.header("⚙️ Consola de Administración")
+            st.caption("Acceso exclusivo para moderar créditos, bloquear cuentas y gestionar catálogos.")
+
+            lista_usuarios = list(db["usuarios"].keys())
+            u_mod = st.selectbox("Selecciona un usuario a gestionar", lista_usuarios, key="adm_u_mod")
+            usr_target = db["usuarios"][u_mod]
+            saldo_actual = usr_target.get("creditos", 0)
+
+            # --- SECCIÓN 1: GESTIÓN DE CRÉDITOS ---
+            st.subheader("💰 Modificar Créditos")
+            st.write(f"Saldo actual de **{u_mod.capitalize()}**: `{saldo_actual} cr`")
+
+            col_adm1, col_adm2 = st.columns(2)
+            with col_adm1:
+                puntos_mod = st.number_input("Cantidad de créditos", min_value=1, value=10, step=5, key="adm_pts")
+                motivo_mod = st.text_input("Motivo del ajuste (opcional)", placeholder="Ej: Penalización por no limpiar", key="adm_motivo")
+            
+            with col_adm2:
+                st.write("Acciones:")
+                if st.button("➕ Añadir Puntos", use_container_width=True):
+                    usr_target["creditos"] += puntos_mod
+                    f_act = obtener_fecha_hora()
+                    msg = f"⚡ Ajuste Admin (+{puntos_mod} cr)" + (f": {motivo_mod}" if motivo_mod else "")
+                    usr_target.setdefault("historial", []).append({"actividad": msg, "coste": -puntos_mod, "fecha": f_act})
+                    guardar_datos(db)
+                    st.success(f"¡Añadidos {puntos_mod} cr a {u_mod.capitalize()}!")
+                    st.rerun()
+
+                if st.button("➖ Quitar Puntos", type="primary", use_container_width=True):
+                    usr_target["creditos"] = max(0, usr_target["creditos"] - puntos_mod)
+                    f_act = obtener_fecha_hora()
+                    msg = f"⚠️ Penalización Admin (-{puntos_mod} cr)" + (f": {motivo_mod}" if motivo_mod else "")
+                    usr_target.setdefault("historial", []).append({"actividad": msg, "coste": puntos_mod, "fecha": f_act})
+                    guardar_datos(db)
+                    st.warning(f"¡Restados {puntos_mod} cr a {u_mod.capitalize()}!")
+                    st.rerun()
+
+            st.divider()
+
+            # --- SECCIÓN 2: BLOQUEO TEMPORAL DE CUENTA ---
+            st.subheader("🔒 Bloquear / Desbloquear Cuenta")
+            esta_bl, f_fin_bl = esta_bloqueado(usr_target)
+            
+            if esta_bl:
+                st.warning(f"⚠️ **{u_mod.capitalize()}** está actualmente **BLOQUEADO** hasta el {f_fin_bl}.")
+                if st.button(f"🔓 Desbloquear a {u_mod.capitalize()} ahora mismo", type="primary"):
+                    usr_target["bloqueado_hasta"] = None
+                    guardar_datos(db)
+                    st.success(f"¡{u_mod.capitalize()} ha sido desbloqueado!")
+                    st.rerun()
+            else:
+                st.info(f"🟢 **{u_mod.capitalize()}** tiene la cuenta activa y sin restricciones.")
+                
+                col_b1, col_b2 = st.columns(2)
+                with col_b1:
+                    fecha_bloqueo = st.date_input("Bloquear hasta el día", key="adm_f_blq")
+                with col_b2:
+                    hora_bloqueo = st.time_input("Hora de fin", key="adm_h_blq")
+                
+                if st.button(f"🔒 Aplicar Bloqueo a {u_mod.capitalize()}", use_container_width=True):
+                    dt_bloqueo = datetime.combine(fecha_bloqueo, hora_bloqueo, tzinfo=ZoneInfo("Europe/Madrid"))
+                    ahora = datetime.now(ZoneInfo("Europe/Madrid"))
+                    if dt_bloqueo <= ahora:
+                        st.error("La fecha/hora de bloqueo debe ser futura.")
                     else:
-                        for h in reversed(hist[-3:]):
-                            st.caption(f"{h['fecha']} - {h['actividad']}")
+                        usr_target["bloqueado_hasta"] = dt_bloqueo.isoformat()
+                        guardar_datos(db)
+                        st.success(f"¡Cuenta de {u_mod.capitalize()} bloqueada hasta el {dt_bloqueo.strftime('%d/%m/%Y a las %H:%M')}!")
+                        st.rerun()
+
+            st.divider()
+
+            # --- SECCIÓN 3: AÑADIR A LOS CATÁLOGOS ---
+            st.subheader("➕ Añadir Nuevo Elemento al Catálogo")
+            tipo_cat = st.radio("¿Dónde deseas añadirlo?", ["🛒 Gastar (Recompensa)", "💪 Ganar (Tarea)"], horizontal=True)
+
+            c_n1, c_n2 = st.columns([1, 3])
+            with c_n1:
+                nuevo_emoji = st.text_input("Emoji", value="✨", key="adm_emoji")
+            with c_n2:
+                nuevo_nombre = st.text_input("Nombre de la tarea/premio", key="adm_nombre")
+
+            c_n3, c_n4 = st.columns(2)
+            with c_n3:
+                nuevo_valor = st.number_input("Valor en Créditos", min_value=1, value=15, key="adm_valor")
+            with c_n4:
+                nuevo_limite = st.number_input("Límite diario", min_value=1, value=1, key="adm_limite")
+
+            es_destacado = st.checkbox("⭐ Destacar elemento", key="adm_destacado")
+
+            if st.button("Guardar en el Catálogo 💾", type="primary"):
+                if not nuevo_nombre:
+                    st.error("Por favor, introduce un nombre.")
+                else:
+                    if tipo_cat.startswith("🛒"):
+                        lista_cat = db.get("catalogo_gastar", CATALOGO_GASTAR_BASE)
+                        nuevo_id = max([x["id"] for x in lista_cat], default=0) + 1
+                        nuevo_item = {
+                            "id": nuevo_id,
+                            "emoji": nuevo_emoji,
+                            "nombre": nuevo_nombre,
+                            "coste": int(nuevo_valor),
+                            "limite_diario": int(nuevo_limite)
+                        }
+                        if es_destacado:
+                            nuevo_item["destacado"] = True
+                        lista_cat.append(nuevo_item)
+                        db["catalogo_gastar"] = lista_cat
+                    else:
+                        lista_cat = db.get("catalogo_ganar", CATALOGO_GANAR_BASE)
+                        nuevo_id = max([x["id"] for x in lista_cat], default=100) + 1
+                        nuevo_item = {
+                            "id": nuevo_id,
+                            "emoji": nuevo_emoji,
+                            "nombre": nuevo_nombre,
+                            "recompensa": int(nuevo_valor),
+                            "limite_diario": int(nuevo_limite)
+                        }
+                        if es_destacado:
+                            nuevo_item["destacado"] = True
+                        lista_cat.append(nuevo_item)
+                        db["catalogo_ganar"] = lista_cat
+
+                    guardar_datos(db)
+                    st.toast("¡Elemento añadido al catálogo con éxito!", icon="🎉")
+                    st.rerun()
+
+            st.divider()
+
+            # --- SECCIÓN 4: VER Y VACIAR SUGERENCIAS ---
+            st.subheader("📥 Sugerencias Recibidas")
+            if st.button("Vaciar todas las sugerencias 🗑️", key="btn_vaciar_sug_adm"):
+                db["sugerencias"] = []
+                guardar_datos(db)
+                st.rerun()
+
+            sugerencias_lista = db.get("sugerencias", [])
+            if not sugerencias_lista:
+                st.info("No hay sugerencias registradas por ahora.")
+            else:
+                for sug in reversed(sugerencias_lista):
+                    st.markdown(f"**👤 {sug['usuario']}** ({sug['fecha']}):\n> {sug['texto']}")
+                    st.divider()
 
 # Ejecución
 renderizar_panel_principal()
