@@ -349,7 +349,7 @@ def renderizar_panel_principal():
         fecha_hoy = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
         stock = usr_data.setdefault("stock_usado", {}).setdefault(fecha_hoy, {})
 
-        cat_ganar = db.get("catalogo_ganar", CATALOGO_GANAR_BASE)
+        cat_ganar = db.get("catalogo_ganar", CATALOGO_GANAR)
         tareas_filtradas = [t for t in cat_ganar if search_ganar in t["nombre"].lower()]
 
         if not tareas_filtradas:
