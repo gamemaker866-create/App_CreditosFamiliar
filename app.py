@@ -76,11 +76,11 @@ CATALOGO_GANAR = [
 ]
 
 PREMIOS_MISTERIO_DEFECTO = [
-    {"id": 1, "emoji": "🪙", "nombre": "Bote Pequeño (+10 cr)", "tipo": "creditos", "valor": 10, "probabilidad": 30},
-    {"id": 2, "emoji": "💰", "nombre": "¡Gran Bote! (+50 cr)", "tipo": "creditos", "valor": 50, "probabilidad": 10},
-    {"id": 3, "emoji": "💣", "nombre": "Trampa de Créditos (-10 cr)", "tipo": "creditos", "valor": -10, "probabilidad": 20},
-    {"id": 4, "emoji": "🗣️", "nombre": "Decir un cumplido exagerado a todos", "tipo": "mensaje", "valor": 0, "probabilidad": 25},
-    {"id": 5, "emoji": "🎟️", "nombre": "Elegir la música en el próximo viaje", "tipo": "vale", "valor": 0, "probabilidad": 15}
+    {"id": 1, "emoji": "🪙", "nombre": "Bote Pequeño", "tipo": "creditos", "valor": 10, "texto": "", "probabilidad": 30},
+    {"id": 2, "emoji": "💰", "nombre": "¡Gran Bote!", "tipo": "creditos", "valor": 50, "texto": "", "probabilidad": 10},
+    {"id": 3, "emoji": "💣", "nombre": "Trampa de Créditos", "tipo": "creditos", "valor": -10, "texto": "", "probabilidad": 20},
+    {"id": 4, "emoji": "🗣️", "nombre": "Cumplido Especial", "tipo": "mensaje", "valor": 0, "texto": "¡Dile un cumplido exagerado a todos en la mesa!", "probabilidad": 25},
+    {"id": 5, "emoji": "🎟️", "nombre": "Vale de DJ del coche", "tipo": "vale", "valor": 0, "texto": "Elegir la música en el próximo viaje en coche", "probabilidad": 15}
 ]
 
 DATOS_INICIALES = {
@@ -396,18 +396,18 @@ def renderizar_panel_principal():
         if not usr_data["historial"]:
             st.info("Sin movimientos recientes")
         else:
-            st.caption("Pulsa sobre cualquier canje para abrir su tarjeta oficial:")
+            st.caption("Pulsa sobre cualquier canje o vale para abrir su tarjeta oficial:")
             elementos_historial = list(enumerate(usr_data["historial"]))
 
             for idx_real, item in reversed(elementos_historial[-10:]):
                 c = item.get("coste", 0)
-                es_gasto = c > 0
-                signo = f"-{c} cr" if es_gasto else (f"+{abs(c)} cr" if c < 0 else "0 cr")
+                es_tarjeta = (c > 0) or item.get("es_vale", False)
+                signo = f"-{c} cr" if c > 0 else (f"+{abs(c)} cr" if c < 0 else "0 cr")
                 usado = item.get("usado", False)
 
                 col_h1, col_h2 = st.columns([3, 1])
                 with col_h1:
-                    if es_gasto:
+                    if es_tarjeta:
                         etiqueta = f"✅ {item['actividad']} (Usado)" if usado else f"🎴 {item['actividad']}"
                         if st.button(etiqueta, key=f"btn_card_{idx_real}", use_container_width=True):
                             st.session_state.tarjeta_activa = idx_real
@@ -446,7 +446,7 @@ def renderizar_panel_principal():
     # 2. CAJA MISTERIOSA / RULETA DIARIA
     with tab_misterio:
         st.subheader("🎁 Caja Misteriosa Diaria")
-        st.write("Prueba tu suerte abriendo la caja misteriosa. ¡Puede tocarte un gran bote de créditos, una tarjeta especial o una divertida penalización!")
+        st.write("Prueba tu suerte abriendo la caja misteriosa. ¡Puede tocarte créditos, un vale especial o un divertido mensaje!")
         st.info("📌 **Coste:** 20 créditos | ⏳ **Límite:** 1 vez al día")
 
         fecha_hoy = obtener_fecha_hoy()
@@ -473,27 +473,47 @@ def renderizar_panel_principal():
                     usr_data["ultima_caja_misterio"] = fecha_hoy
                     f_act = obtener_fecha_hora()
 
-                    # Cobro del coste de apertura
+                    # Cobro inicial de la apertura
                     usr_data.setdefault("historial", []).append({
                         "actividad": "🎁 Apertura de Caja Misteriosa",
                         "coste": 20,
                         "fecha": f_act
                     })
 
-                    # Aplicar efecto del premio
                     tipo = premio_ganado.get("tipo", "mensaje")
                     emoji = premio_ganado.get("emoji", "🎁")
                     nombre_premio = premio_ganado.get("nombre", "")
+                    texto_detalle = premio_ganado.get("texto", "")
+
+                    msg_pantalla = ""
 
                     if tipo == "creditos":
                         val_cr = premio_ganado.get("valor", 0)
                         usr_data["creditos"] += val_cr
                         signo_hist = -val_cr
-                        msg_hist = f"🎁 Caja Misteriosa: {emoji} {nombre_premio}"
+                        msg_hist = f"🎁 Premio Misterioso: {emoji} {nombre_premio}"
                         usr_data["historial"].append({"actividad": msg_hist, "coste": signo_hist, "fecha": f_act})
-                    else: # mensaje o vale
-                        msg_hist = f"🎁 Caja Misteriosa: {emoji} {nombre_premio}"
-                        usr_data["historial"].append({"actividad": msg_hist, "coste": 0, "fecha": f_act})
+                        msg_pantalla = f"¡Obtienes {val_cr} créditos!" if val_cr >= 0 else f"¡Sufres una penalización de {val_cr} créditos!"
+
+                    elif tipo == "vale":
+                        # Se registra como vale canjeable en el historial (como comprar en la tienda gratis)
+                        desc_completa = f"{emoji} {nombre_premio}" + (f": {texto_detalle}" if texto_detalle else "")
+                        usr_data["historial"].append({
+                            "actividad": desc_completa,
+                            "coste": 0,
+                            "es_vale": True,
+                            "usado": False,
+                            "fecha": f_act
+                        })
+                        msg_pantalla = f"🎟️ ¡Vale ganado! Revisa tu **Perfil** para verlo en tus tarjetas de recompensa activos."
+
+                    elif tipo == "mensaje":
+                        usr_data["historial"].append({
+                            "actividad": f"🎁 Mensaje Misterioso: {emoji} {nombre_premio}",
+                            "coste": 0,
+                            "fecha": f_act
+                        })
+                        msg_pantalla = f"💬 **Mensaje:** {texto_detalle}" if texto_detalle else "¡Has sacado una tarjeta de mensaje!"
 
                     guardar_datos(db)
                     st.balloons()
@@ -504,7 +524,7 @@ def renderizar_panel_principal():
                         <div style="background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); color: #1e3c72; padding: 25px; border-radius: 15px; text-align: center; margin: 15px 0; border: 2px solid #4a90e2;">
                             <h1 style="margin:0; font-size: 3em;">{emoji}</h1>
                             <h2 style="margin:10px 0;">¡{nombre_premio}!</h2>
-                            <p style="font-size: 1.1em; font-weight: bold;">¡Premio registrado en tu historial!</p>
+                            <p style="font-size: 1.1em;">{msg_pantalla}</p>
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -747,44 +767,94 @@ def renderizar_panel_principal():
             st.subheader("🎁 Configuración de la Caja Misteriosa")
             premios_act = db.get("premios_misterio", PREMIOS_MISTERIO_DEFECTO)
             
-            with st.expander("✏️ Editar o Borrar Premios Existentes"):
+            tab_pm_edit, tab_pm_add = st.tabs(["✏️ Editar / Borrar Premios", "➕ Añadir Nuevo Premio"])
+
+            with tab_pm_edit:
                 if not premios_act:
-                    st.info("No hay premios en la caja.")
+                    st.info("No hay premios configurados en la caja misteriosa.")
                 else:
-                    for p in premios_act:
-                        c_p1, c_p2, c_p3 = st.columns([3, 1, 1])
-                        c_p1.write(f"**{p['emoji']} {p['nombre']}** ({p['probabilidad']}% prob.)")
-                        if c_p3.button("🗑️ Borrar", key=f"del_pm_{p['id']}"):
-                            db["premios_misterio"] = [x for x in premios_act if x["id"] != p["id"]]
-                            guardar_datos(db)
-                            st.toast("Premio eliminado")
-                            st.rerun()
+                    premios_titulos = [f"{p['emoji']} {p['nombre']} (ID: {p['id']})" for p in premios_act]
+                    sel_pm_str = st.selectbox("Selecciona premio a modificar", premios_titulos, key="adm_sel_pm")
 
-            with st.expander("➕ Añadir Nuevo Premio a la Caja Misteriosa"):
-                pm_emoji = st.text_input("Emoji del premio", value="🎁", key="pm_emoji")
-                pm_nombre = st.text_input("Nombre / Descripción del Premio", key="pm_nombre", placeholder="Ej: Bote Sorpresa de 100 cr")
-                pm_tipo = st.selectbox("Tipo de Premio", ["creditos", "mensaje", "vale"], key="pm_tipo")
-                pm_valor = st.number_input("Valor en Créditos (si aplica, positivo o negativo)", value=20, key="pm_valor")
-                pm_prob = st.number_input("Peso de Probabilidad (%)", min_value=1, max_value=100, value=20, key="pm_prob")
+                    if sel_pm_str:
+                        id_pm = int(sel_pm_str.split("ID: ")[1].replace(")", ""))
+                        pm_obj = next((x for x in premios_act if x["id"] == id_pm), None)
 
-                if st.button("Guardar Premio Misterioso 💾", type="primary", key="btn_add_pm"):
-                    if pm_nombre.strip():
+                        if pm_obj:
+                            with st.form(key=f"form_edit_pm_{id_pm}"):
+                                st.write(f"✏️ **Editando Premio Misterioso:** {pm_obj['nombre']}")
+                                e_pm_emoji = st.text_input("Emoji", value=pm_obj.get("emoji", "🎁"))
+                                e_pm_nombre = st.text_input("Nombre / Título del premio", value=pm_obj.get("nombre", ""))
+                                
+                                tipos_opciones = ["creditos", "vale", "mensaje"]
+                                idx_tipo_def = tipos_opciones.index(pm_obj.get("tipo", "mensaje")) if pm_obj.get("tipo") in tipos_opciones else 0
+                                e_pm_tipo = st.selectbox("Tipo de premio", tipos_opciones, index=idx_tipo_def)
+
+                                e_pm_valor = st.number_input("Valor en Créditos (+/-)", value=int(pm_obj.get("valor", 0)), help="Positivo para sumar créditos, negativo para penalización.")
+                                e_pm_texto = st.text_area("Texto / Descripción del Vale o Mensaje", value=pm_obj.get("texto", ""), help="Texto que verá el usuario si le toca un vale o mensaje.")
+                                e_pm_prob = st.number_input("Peso de Probabilidad (%)", min_value=1, max_value=100, value=int(pm_obj.get("probabilidad", 10)))
+
+                                c_pm_save, c_pm_del = st.columns(2)
+                                with c_pm_save:
+                                    sub_pm_save = st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True)
+                                with c_pm_del:
+                                    sub_pm_del = st.form_submit_button("🗑️ Eliminar Premio", use_container_width=True)
+
+                                if sub_pm_save:
+                                    pm_obj["emoji"] = e_pm_emoji
+                                    pm_obj["nombre"] = e_pm_nombre
+                                    pm_obj["tipo"] = e_pm_tipo
+                                    pm_obj["valor"] = int(e_pm_valor)
+                                    pm_obj["texto"] = e_pm_texto
+                                    pm_obj["probabilidad"] = int(e_pm_prob)
+
+                                    db["premios_misterio"] = premios_act
+                                    guardar_datos(db)
+                                    st.toast("¡Premio de la caja actualizado!", icon="✅")
+                                    st.rerun()
+
+                                if sub_pm_del:
+                                    db["premios_misterio"] = [x for x in premios_act if x["id"] != id_pm]
+                                    guardar_datos(db)
+                                    st.toast("¡Premio eliminado!", icon="🗑️")
+                                    st.rerun()
+
+            with tab_pm_add:
+                n_pm_emoji = st.text_input("Emoji del premio", value="🎁", key="add_pm_emoji")
+                n_pm_nombre = st.text_input("Nombre / Título del premio", placeholder="Ej: Vale de DJ", key="add_pm_nombre")
+                n_pm_tipo = st.selectbox("Tipo de Premio", ["creditos", "vale", "mensaje"], key="add_pm_tipo")
+                
+                if n_pm_tipo == "creditos":
+                    n_pm_valor = st.number_input("Valor en Créditos (+/-)", value=20, key="add_pm_valor", help="Usa valores negativos para trampas/penalizaciones.")
+                    n_pm_texto = ""
+                elif n_pm_tipo == "vale":
+                    n_pm_valor = 0
+                    n_pm_texto = st.text_area("Texto del Vale Canjeable", placeholder="Ej: Elegir la película del sábado", key="add_pm_texto_v")
+                else: # mensaje
+                    n_pm_valor = 0
+                    n_pm_texto = st.text_area("Texto del Mensaje / Cumplido", placeholder="Ej: ¡Decirle algo bonito a la persona de la derecha!", key="add_pm_texto_m")
+
+                n_pm_prob = st.number_input("Peso de Probabilidad (%)", min_value=1, max_value=100, value=20, key="add_pm_prob")
+
+                if st.button("Guardar Nuevo Premio 💾", type="primary", key="btn_add_pm_new"):
+                    if n_pm_nombre.strip():
                         nuevo_id_pm = max([x["id"] for x in premios_act], default=0) + 1
                         nuevo_pm = {
                             "id": nuevo_id_pm,
-                            "emoji": pm_emoji,
-                            "nombre": pm_nombre.strip(),
-                            "tipo": pm_tipo,
-                            "valor": int(pm_valor),
-                            "probabilidad": int(pm_prob)
+                            "emoji": n_pm_emoji,
+                            "nombre": n_pm_nombre.strip(),
+                            "tipo": n_pm_tipo,
+                            "valor": int(n_pm_valor),
+                            "texto": n_pm_texto.strip(),
+                            "probabilidad": int(n_pm_prob)
                         }
                         premios_act.append(nuevo_pm)
                         db["premios_misterio"] = premios_act
                         guardar_datos(db)
-                        st.success("¡Premio añadido a la caja misteriosa!")
+                        st.toast("¡Nuevo premio añadido a la caja misteriosa!", icon="🎉")
                         st.rerun()
                     else:
-                        st.error("Por favor, introduce un nombre.")
+                        st.error("Por favor, introduce un nombre para el premio.")
 
             st.divider()
 
