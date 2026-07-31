@@ -22,22 +22,6 @@ def init_supabase():
 
 supabase = init_supabase()
 
-DATOS_INICIALES = {
-    "semana_actual": datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1],
-    "sugerencias": [],
-    "usuarios": {
-        "eric": {
-            "password": "2020_Electronica",
-            "creditos": 100,
-            "historial": [],
-            "logros": [],
-            "stock_usado": {},
-            "amigos": [],
-            "solicitudes_recibidas": []
-        }
-    }
-}
-
 CATALOGO_GASTAR = [
     {"id": 1, "emoji": "🛋️", "nombre": "Librarte de una tarea por 1 día", "coste": 30, "limite_diario": 1},
     {"id": 2, "emoji": "📺", "nombre": "Ver la tele (1h)", "coste": 15, "limite_diario": 2},
@@ -91,8 +75,43 @@ CATALOGO_GANAR = [
     {"id": 117, "emoji": "📖", "nombre": "Logro: 14 días seguidos de lectura (30 min)", "recompensa": 40, "limite_diario": 1, "destacado": True}
 ]
 
+PREMIOS_MISTERIO_DEFECTO = [
+    {"id": 1, "emoji": "🪙", "nombre": "Bote Pequeño (+10 cr)", "tipo": "creditos", "valor": 10, "probabilidad": 30},
+    {"id": 2, "emoji": "💰", "nombre": "¡Gran Bote! (+50 cr)", "tipo": "creditos", "valor": 50, "probabilidad": 10},
+    {"id": 3, "emoji": "💣", "nombre": "Trampa de Créditos (-10 cr)", "tipo": "creditos", "valor": -10, "probabilidad": 20},
+    {"id": 4, "emoji": "🗣️", "nombre": "Decir un cumplido exagerado a todos", "tipo": "mensaje", "valor": 0, "probabilidad": 25},
+    {"id": 5, "emoji": "🎟️", "nombre": "Elegir la música en el próximo viaje", "tipo": "vale", "valor": 0, "probabilidad": 15}
+]
+
+DATOS_INICIALES = {
+    "semana_actual": datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1],
+    "sugerencias": [],
+    "reto_flash": None,
+    "subasta_activa": None,
+    "meta_comunitaria": None,
+    "premios_misterio": PREMIOS_MISTERIO_DEFECTO,
+    "catalogo_gastar": CATALOGO_GASTAR,
+    "catalogo_ganar": CATALOGO_GANAR,
+    "usuarios": {
+        "eric": {
+            "password": "2020_Electronica",
+            "creditos": 100,
+            "historial": [],
+            "logros": [],
+            "stock_usado": {},
+            "amigos": [],
+            "solicitudes_recibidas": [],
+            "bloqueado_hasta": None,
+            "ultima_caja_misterio": None
+        }
+    }
+}
+
 def obtener_fecha_hora():
     return datetime.now(ZoneInfo("Europe/Madrid")).strftime("%d/%m/%Y %H:%M")
+
+def obtener_fecha_hoy():
+    return datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
 
 def esta_bloqueado(usr_data):
     bloqueado_hasta_str = usr_data.get("bloqueado_hasta")
@@ -117,6 +136,8 @@ def cargar_datos():
             datos.setdefault("sugerencias", [])
             datos.setdefault("reto_flash", None)
             datos.setdefault("subasta_activa", None)
+            datos.setdefault("meta_comunitaria", None)
+            datos.setdefault("premios_misterio", PREMIOS_MISTERIO_DEFECTO)
             datos.setdefault("usuarios", {})
             datos.setdefault("catalogo_gastar", CATALOGO_GASTAR)
             datos.setdefault("catalogo_ganar", CATALOGO_GANAR)
@@ -129,6 +150,7 @@ def cargar_datos():
                 u_data["amigos"] = list(dict.fromkeys(u_data.get("amigos", [])))
                 u_data["solicitudes_recibidas"] = list(dict.fromkeys(u_data.get("solicitudes_recibidas", [])))
                 u_data.setdefault("bloqueado_hasta", None)
+                u_data.setdefault("ultima_caja_misterio", None)
 
             semana_hoy = datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1]
             if datos.get("semana_actual") != semana_hoy:
@@ -193,7 +215,8 @@ if not st.session_state.usuario:
                     "stock_usado": {},
                     "amigos": [],
                     "solicitudes_recibidas": [],
-                    "bloqueado_hasta": None
+                    "bloqueado_hasta": None,
+                    "ultima_caja_misterio": None
                 }
                 guardar_datos(db)
                 st.success("¡Cuenta creada! Ya puedes iniciar sesión.")
@@ -226,6 +249,49 @@ def renderizar_panel_principal():
     reto_actual = db.get("reto_flash")
     if reto_actual and reto_actual.get("activo"):
         st.info(f"🎯 **RETO FLASH DEL DÍA:** {reto_actual['texto']} \n\n *(Recompensa especial: +{reto_actual['recompensa']} cr)*")
+
+    # Banner Meta Comunitaria
+    meta = db.get("meta_comunitaria")
+    if meta and meta.get("activa"):
+        with st.container(border=True):
+            st.subheader(f"🎯 Meta Comunitaria: {meta['titulo']}")
+            st.caption(meta.get("descripcion", ""))
+            
+            recaudado = meta.get("recaudado", 0)
+            objetivo = meta.get("objetivo", 100)
+            progreso = min(1.0, recaudado / objetivo)
+            
+            st.progress(progreso, text=f"Recaudado: {recaudado} / {objetivo} cr ({int(progreso*100)}%)")
+            
+            if recaudado >= objetivo:
+                st.balloons()
+                st.success("🎉 ¡META ALCANZADA! Todos los usuarios podéis disfrutar de la recompensa.")
+            else:
+                usuario_bloqueado_m, _ = esta_bloqueado(usr_data)
+                col_m1, col_m2 = st.columns([2, 1])
+                with col_m1:
+                    monto_donar = st.number_input(
+                        "Donar créditos", 
+                        min_value=1, 
+                        max_value=max(1, usr_data["creditos"]), 
+                        value=min(10, max(1, usr_data["creditos"])),
+                        key="input_donar_meta"
+                    )
+                with col_m2:
+                    st.write("")
+                    st.write("")
+                    if st.button("Donar 🤝", use_container_width=True, disabled=usuario_bloqueado_m or usr_data["creditos"] < 1):
+                        usr_data["creditos"] -= monto_donar
+                        meta["recaudado"] += monto_donar
+                        f_act = obtener_fecha_hora()
+                        usr_data.setdefault("historial", []).append({
+                            "actividad": f"🤝 Donación a Meta: {meta['titulo']}", 
+                            "coste": monto_donar, 
+                            "fecha": f_act
+                        })
+                        guardar_datos(db)
+                        st.toast(f"¡Has donado {monto_donar} cr a la meta!", icon="🎁")
+                        st.rerun()
 
     # Banner Subasta Activa
     subasta = db.get("subasta_activa")
@@ -261,16 +327,17 @@ def renderizar_panel_principal():
 
     usuario_bloqueado, fecha_fin_bloqueo = esta_bloqueado(usr_data)
 
-    nombres_tabs = ["Mi Perfil", "💪 Ganar", "🛒 Gastar", "👥 Comunidad"]
+    nombres_tabs = ["Mi Perfil", "🎁 Ruleta", "💪 Ganar", "🛒 Gastar", "👥 Comunidad"]
     if usr == "eric":
         nombres_tabs.append("⚙️ Panel Admin")
 
     tabs = st.tabs(nombres_tabs)
     tab_perfil = tabs[0]
-    tab_ganar = tabs[1]
-    tab_tienda = tabs[2]
-    tab_comunidad = tabs[3]
-    tab_admin = tabs[4] if usr == "eric" else None
+    tab_misterio = tabs[1]
+    tab_ganar = tabs[2]
+    tab_tienda = tabs[3]
+    tab_comunidad = tabs[4]
+    tab_admin = tabs[5] if usr == "eric" else None
 
     # 1. MI PERFIL
     with tab_perfil:
@@ -376,14 +443,82 @@ def renderizar_panel_principal():
             else:
                 st.warning("Por favor, escribe algo antes de enviar.")
 
-    # 2. GANAR CRÉDITOS
+    # 2. CAJA MISTERIOSA / RULETA DIARIA
+    with tab_misterio:
+        st.subheader("🎁 Caja Misteriosa Diaria")
+        st.write("Prueba tu suerte abriendo la caja misteriosa. ¡Puede tocarte un gran bote de créditos, una tarjeta especial o una divertida penalización!")
+        st.info("📌 **Coste:** 20 créditos | ⏳ **Límite:** 1 vez al día")
+
+        fecha_hoy = obtener_fecha_hoy()
+        ultima_fecha_abierta = usr_data.get("ultima_caja_misterio")
+        ya_abrio_hoy = (ultima_fecha_abierta == fecha_hoy)
+
+        if ya_abrio_hoy:
+            st.warning("🔒 **Ya has abierto tu Caja Misteriosa de hoy.** Vuelve mañana a probar suerte.")
+        elif usr_data["creditos"] < 20:
+            st.error("❌ No tienes suficientes créditos para abrir la caja misteriosa (necesitas 20 cr).")
+        elif usuario_bloqueado:
+            st.error(f"🔒 **Cuenta bloqueada.** No puedes abrir la caja hasta el **{fecha_fin_bloqueo}**.")
+        else:
+            if st.button("🎁 Abrir Caja Misteriosa (20 cr)", type="primary", use_container_width=True):
+                premios_disponibles = db.get("premios_misterio", PREMIOS_MISTERIO_DEFECTO)
+                
+                if not premios_disponibles:
+                    st.error("No hay premios configurados en la caja misteriosa por el administrador.")
+                else:
+                    pesos = [p.get("probabilidad", 10) for p in premios_disponibles]
+                    premio_ganado = random.choices(premios_disponibles, weights=pesos, k=1)[0]
+                    
+                    usr_data["creditos"] -= 20
+                    usr_data["ultima_caja_misterio"] = fecha_hoy
+                    f_act = obtener_fecha_hora()
+
+                    # Cobro del coste de apertura
+                    usr_data.setdefault("historial", []).append({
+                        "actividad": "🎁 Apertura de Caja Misteriosa",
+                        "coste": 20,
+                        "fecha": f_act
+                    })
+
+                    # Aplicar efecto del premio
+                    tipo = premio_ganado.get("tipo", "mensaje")
+                    emoji = premio_ganado.get("emoji", "🎁")
+                    nombre_premio = premio_ganado.get("nombre", "")
+
+                    if tipo == "creditos":
+                        val_cr = premio_ganado.get("valor", 0)
+                        usr_data["creditos"] += val_cr
+                        signo_hist = -val_cr
+                        msg_hist = f"🎁 Caja Misteriosa: {emoji} {nombre_premio}"
+                        usr_data["historial"].append({"actividad": msg_hist, "coste": signo_hist, "fecha": f_act})
+                    else: # mensaje o vale
+                        msg_hist = f"🎁 Caja Misteriosa: {emoji} {nombre_premio}"
+                        usr_data["historial"].append({"actividad": msg_hist, "coste": 0, "fecha": f_act})
+
+                    guardar_datos(db)
+                    st.balloons()
+
+                    # Mostrar resultado
+                    st.markdown(
+                        f"""
+                        <div style="background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); color: #1e3c72; padding: 25px; border-radius: 15px; text-align: center; margin: 15px 0; border: 2px solid #4a90e2;">
+                            <h1 style="margin:0; font-size: 3em;">{emoji}</h1>
+                            <h2 style="margin:10px 0;">¡{nombre_premio}!</h2>
+                            <p style="font-size: 1.1em; font-weight: bold;">¡Premio registrado en tu historial!</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    st.button("Entendido 👍", use_container_width=True)
+
+    # 3. GANAR CRÉDITOS
     with tab_ganar:
         st.subheader("Completa tareas para ganar créditos")
         if usuario_bloqueado:
             st.error(f"🔒 **Cuenta bloqueada.** No puedes realizar tareas hasta el **{fecha_fin_bloqueo}**.")
         
         search_ganar = st.text_input("🔍 Buscar tarea...", key="search_ganar").strip().lower()
-        fecha_hoy = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
+        fecha_hoy = obtener_fecha_hoy()
         stock = usr_data.setdefault("stock_usado", {}).setdefault(fecha_hoy, {})
 
         cat_ganar = db.get("catalogo_ganar", CATALOGO_GANAR)
@@ -414,14 +549,14 @@ def renderizar_panel_principal():
                         st.rerun()
                 st.divider()
 
-    # 3. GASTAR CRÉDITOS
+    # 4. GASTAR CRÉDITOS
     with tab_tienda:
         st.subheader("Canjea tus créditos por recompensas")
         if usuario_bloqueado:
             st.error(f"🔒 **Cuenta bloqueada.** No puedes canjear recompensas hasta el **{fecha_fin_bloqueo}**.")
             
         search_gastar = st.text_input("🔍 Buscar recompensa...", key="search_gastar").strip().lower()
-        fecha_hoy = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
+        fecha_hoy = obtener_fecha_hoy()
         stock = usr_data.setdefault("stock_usado", {}).setdefault(fecha_hoy, {})
 
         cat_gastar = db.get("catalogo_gastar", CATALOGO_GASTAR)
@@ -463,7 +598,7 @@ def renderizar_panel_principal():
                         st.rerun()
                 st.divider()
 
-    # 4. COMUNIDAD
+    # 5. COMUNIDAD
     with tab_comunidad:
         st.subheader("📩 Enviar Solicitud de Amistad")
         nuevo_amigo = st.text_input("Usuario a añadir", key="add_amigo").strip().lower()
@@ -533,11 +668,11 @@ def renderizar_panel_principal():
                         else:
                             st.error("No tienes suficientes créditos")
 
-    # 5. PESTAÑA EXCLUSIVA DE ADMIN (solo visible para 'eric')
+    # 6. PESTAÑA EXCLUSIVA DE ADMIN (solo visible para 'eric')
     if usr == "eric" and tab_admin is not None:
         with tab_admin:
             st.header("⚙️ Consola de Administración")
-            st.caption("Acceso exclusivo para moderar créditos, subastas y catálogos.")
+            st.caption("Acceso exclusivo para moderar créditos, subastas, metas y catálogos.")
 
             lista_usuarios = list(db["usuarios"].keys())
             u_mod = st.selectbox("Selecciona un usuario a gestionar", lista_usuarios, key="adm_u_mod")
@@ -575,7 +710,85 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 2: SUBASTAS Y PUJAS ---
+            # --- SECCIÓN 2: METAS COMUNITARIAS ---
+            st.subheader("🎯 Gestor de Meta Comunitaria")
+            meta_activa = db.get("meta_comunitaria")
+            
+            if meta_activa and meta_activa.get("activa"):
+                st.warning(f"🎯 **Meta actual:** {meta_activa['titulo']} ({meta_activa['recaudado']}/{meta_activa['objetivo']} cr)")
+                if st.button("❌ Cancelar / Finalizar Meta Comunitaria", key="btn_cancelar_meta"):
+                    db["meta_comunitaria"] = None
+                    guardar_datos(db)
+                    st.success("Meta eliminada.")
+                    st.rerun()
+            else:
+                meta_titulo = st.text_input("Título de la meta", placeholder="Ej: Pedir Pizza el Viernes", key="adm_meta_tit")
+                meta_desc = st.text_area("Descripción / Detalles", placeholder="Ej: Si entre todos reunimos 300 créditos, pedimos cenar fuera.", key="adm_meta_desc")
+                meta_obj = st.number_input("Objetivo total de Créditos", min_value=50, value=300, step=25, key="adm_meta_obj")
+
+                if st.button("🚀 Publicar Meta Comunitaria", type="primary"):
+                    if meta_titulo.strip():
+                        db["meta_comunitaria"] = {
+                            "titulo": meta_titulo.strip(),
+                            "descripcion": meta_desc.strip(),
+                            "objetivo": int(meta_obj),
+                            "recaudado": 0,
+                            "activa": True
+                        }
+                        guardar_datos(db)
+                        st.success("¡Meta comunitaria lanzada!")
+                        st.rerun()
+                    else:
+                        st.error("Introduce un título para la meta.")
+
+            st.divider()
+
+            # --- SECCIÓN 3: CONFIGURAR CAJA MISTERIOSA ---
+            st.subheader("🎁 Configuración de la Caja Misteriosa")
+            premios_act = db.get("premios_misterio", PREMIOS_MISTERIO_DEFECTO)
+            
+            with st.expander("✏️ Editar o Borrar Premios Existentes"):
+                if not premios_act:
+                    st.info("No hay premios en la caja.")
+                else:
+                    for p in premios_act:
+                        c_p1, c_p2, c_p3 = st.columns([3, 1, 1])
+                        c_p1.write(f"**{p['emoji']} {p['nombre']}** ({p['probabilidad']}% prob.)")
+                        if c_p3.button("🗑️ Borrar", key=f"del_pm_{p['id']}"):
+                            db["premios_misterio"] = [x for x in premios_act if x["id"] != p["id"]]
+                            guardar_datos(db)
+                            st.toast("Premio eliminado")
+                            st.rerun()
+
+            with st.expander("➕ Añadir Nuevo Premio a la Caja Misteriosa"):
+                pm_emoji = st.text_input("Emoji del premio", value="🎁", key="pm_emoji")
+                pm_nombre = st.text_input("Nombre / Descripción del Premio", key="pm_nombre", placeholder="Ej: Bote Sorpresa de 100 cr")
+                pm_tipo = st.selectbox("Tipo de Premio", ["creditos", "mensaje", "vale"], key="pm_tipo")
+                pm_valor = st.number_input("Valor en Créditos (si aplica, positivo o negativo)", value=20, key="pm_valor")
+                pm_prob = st.number_input("Peso de Probabilidad (%)", min_value=1, max_value=100, value=20, key="pm_prob")
+
+                if st.button("Guardar Premio Misterioso 💾", type="primary", key="btn_add_pm"):
+                    if pm_nombre.strip():
+                        nuevo_id_pm = max([x["id"] for x in premios_act], default=0) + 1
+                        nuevo_pm = {
+                            "id": nuevo_id_pm,
+                            "emoji": pm_emoji,
+                            "nombre": pm_nombre.strip(),
+                            "tipo": pm_tipo,
+                            "valor": int(pm_valor),
+                            "probabilidad": int(pm_prob)
+                        }
+                        premios_act.append(nuevo_pm)
+                        db["premios_misterio"] = premios_act
+                        guardar_datos(db)
+                        st.success("¡Premio añadido a la caja misteriosa!")
+                        st.rerun()
+                    else:
+                        st.error("Por favor, introduce un nombre.")
+
+            st.divider()
+
+            # --- SECCIÓN 4: SUBASTAS Y PUJAS ---
             st.subheader("🔨 Gestión de Subastas Semanales")
             subasta_act = db.get("subasta_activa")
 
@@ -640,7 +853,7 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 3: BLOQUEO TEMPORAL DE CUENTA ---
+            # --- SECCIÓN 5: BLOQUEO TEMPORAL DE CUENTA ---
             st.subheader("🔒 Bloquear / Desbloquear Cuenta")
             esta_bl, f_fin_bl = esta_bloqueado(usr_target)
             
@@ -673,7 +886,7 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 4: RETOS DIARIOS / DESAFÍOS ---
+            # --- SECCIÓN 6: RETOS DIARIOS / DESAFÍOS ---
             st.subheader("🎯 Retos Diarios / Desafíos de Administrador")
             st.caption("Publica una misión flash que verán todos los usuarios en la pantalla principal.")
             
@@ -703,7 +916,7 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 5: GESTOR Y EDITOR DE CATÁLOGOS ---
+            # --- SECCIÓN 7: GESTOR Y EDITOR DE CATÁLOGOS ---
             st.subheader("🎨 Gestor y Editor de Catálogos")
             tab_cat1, tab_cat2 = st.tabs(["➕ Añadir Elemento", "✏️ Modificar / Eliminar Existente"])
 
@@ -811,7 +1024,7 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 6: AUDITORÍA DE ACTIVIDAD INTEGRAL ---
+            # --- SECCIÓN 8: AUDITORÍA DE ACTIVIDAD INTEGRAL ---
             st.subheader("📜 Auditoría Global de Actividad")
             st.caption("Muestra todos los movimientos registrados en la app por orden cronológico.")
 
@@ -839,7 +1052,7 @@ def renderizar_panel_principal():
                         st.caption(f"`{signo}` | {act['fecha']}")
                     st.divider()
 
-            # --- SECCIÓN 7: SUGERENCIAS RECIBIDAS ---
+            # --- SECCIÓN 9: SUGERENCIAS RECIBIDAS ---
             st.subheader("📥 Sugerencias Recibidas")
             if st.button("Vaciar todas las sugerencias 🗑️", key="btn_vaciar_sug_adm"):
                 db["sugerencias"] = []
