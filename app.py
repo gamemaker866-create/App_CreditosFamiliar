@@ -95,7 +95,6 @@ def obtener_fecha_hora():
     return datetime.now(ZoneInfo("Europe/Madrid")).strftime("%d/%m/%Y %H:%M")
 
 def esta_bloqueado(usr_data):
-    """Comprueba si el usuario tiene una sanción de bloqueo activa"""
     bloqueado_hasta_str = usr_data.get("bloqueado_hasta")
     if not bloqueado_hasta_str:
         return False, None
@@ -116,6 +115,7 @@ def cargar_datos():
             datos = response.data[0]["datos"]
             
             datos.setdefault("sugerencias", [])
+            datos.setdefault("reto_flash", None)
             datos.setdefault("usuarios", {})
             datos.setdefault("catalogo_gastar", CATALOGO_GASTAR)
             datos.setdefault("catalogo_ganar", CATALOGO_GANAR)
@@ -221,7 +221,11 @@ def renderizar_panel_principal():
 
     st.metric(label="Saldo Disponible", value=f"{usr_data['creditos']} Créditos")
 
-    # Comprobación de estado de bloqueo del usuario actual
+    # --- BANNER DE RETO FLASH / DESAFÍO GLOBAL ---
+    reto_actual = db.get("reto_flash")
+    if reto_actual and reto_actual.get("activo"):
+        st.info(f"🎯 **RETO FLASH DEL DÍA:** {reto_actual['texto']} \n\n *(Recompensa especial: +{reto_actual['recompensa']} cr)*")
+
     usuario_bloqueado, fecha_fin_bloqueo = esta_bloqueado(usr_data)
 
     nombres_tabs = ["Mi Perfil", "💪 Ganar", "🛒 Gastar", "👥 Comunidad"]
@@ -387,7 +391,7 @@ def renderizar_panel_principal():
         fecha_hoy = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
         stock = usr_data.setdefault("stock_usado", {}).setdefault(fecha_hoy, {})
 
-        cat_gastar = db.get("catalogo_gastar", CATALOGO_GASTAR)
+        cat_gastar = db.get("catalogo_gastar", CATALOGO_GASTAR_BASE)
         recompensas_filtradas = [r for r in cat_gastar if search_gastar in r["nombre"].lower()]
 
         if not recompensas_filtradas:
@@ -500,7 +504,7 @@ def renderizar_panel_principal():
     if usr == "eric" and tab_admin is not None:
         with tab_admin:
             st.header("⚙️ Consola de Administración")
-            st.caption("Acceso exclusivo para moderar créditos, bloquear cuentas y gestionar catálogos.")
+            st.caption("Acceso exclusivo para moderar créditos, retos globales y catálogos.")
 
             lista_usuarios = list(db["usuarios"].keys())
             u_mod = st.selectbox("Selecciona un usuario a gestionar", lista_usuarios, key="adm_u_mod")
@@ -571,64 +575,173 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 3: AÑADIR A LOS CATÁLOGOS ---
-            st.subheader("➕ Añadir Nuevo Elemento al Catálogo")
-            tipo_cat = st.radio("¿Dónde deseas añadirlo?", ["🛒 Gastar (Recompensa)", "💪 Ganar (Tarea)"], horizontal=True)
-
-            c_n1, c_n2 = st.columns([1, 3])
-            with c_n1:
-                nuevo_emoji = st.text_input("Emoji", value="✨", key="adm_emoji")
-            with c_n2:
-                nuevo_nombre = st.text_input("Nombre de la tarea/premio", key="adm_nombre")
-
-            c_n3, c_n4 = st.columns(2)
-            with c_n3:
-                nuevo_valor = st.number_input("Valor en Créditos", min_value=1, value=15, key="adm_valor")
-            with c_n4:
-                nuevo_limite = st.number_input("Límite diario", min_value=1, value=1, key="adm_limite")
-
-            es_destacado = st.checkbox("⭐ Destacar elemento", key="adm_destacado")
-
-            if st.button("Guardar en el Catálogo 💾", type="primary"):
-                if not nuevo_nombre:
-                    st.error("Por favor, introduce un nombre.")
-                else:
-                    if tipo_cat.startswith("🛒"):
-                        lista_cat = db.get("catalogo_gastar", CATALOGO_GASTAR_BASE)
-                        nuevo_id = max([x["id"] for x in lista_cat], default=0) + 1
-                        nuevo_item = {
-                            "id": nuevo_id,
-                            "emoji": nuevo_emoji,
-                            "nombre": nuevo_nombre,
-                            "coste": int(nuevo_valor),
-                            "limite_diario": int(nuevo_limite)
-                        }
-                        if es_destacado:
-                            nuevo_item["destacado"] = True
-                        lista_cat.append(nuevo_item)
-                        db["catalogo_gastar"] = lista_cat
-                    else:
-                        lista_cat = db.get("catalogo_ganar", CATALOGO_GANAR_BASE)
-                        nuevo_id = max([x["id"] for x in lista_cat], default=100) + 1
-                        nuevo_item = {
-                            "id": nuevo_id,
-                            "emoji": nuevo_emoji,
-                            "nombre": nuevo_nombre,
-                            "recompensa": int(nuevo_valor),
-                            "limite_diario": int(nuevo_limite)
-                        }
-                        if es_destacado:
-                            nuevo_item["destacado"] = True
-                        lista_cat.append(nuevo_item)
-                        db["catalogo_ganar"] = lista_cat
-
+            # --- SECCIÓN 3: RETOS DIARIOS / DESAFÍOS (NUEVO) ---
+            st.subheader("🎯 Retos Diarios / Desafíos de Administrador")
+            st.caption("Publica una misión flash que verán todos los usuarios en la pantalla principal.")
+            
+            reto_actual = db.get("reto_flash")
+            if reto_actual and reto_actual.get("activo"):
+                st.warning(f"🔥 **Reto activo:** {reto_actual['texto']} (+{reto_actual['recompensa']} cr)")
+                if st.button("❌ Cancelar / Desactivar Reto", key="btn_cancelar_reto"):
+                    db["reto_flash"] = None
                     guardar_datos(db)
-                    st.toast("¡Elemento añadido al catálogo con éxito!", icon="🎉")
+                    st.success("Reto desactivado.")
                     st.rerun()
+            else:
+                texto_reto = st.text_input("Descripción del reto flash", placeholder="Ej: El primero en sacar la basura gana puntos doble", key="adm_ret_txt")
+                puntos_reto = st.number_input("Recompensa extra", min_value=1, value=25, key="adm_ret_pts")
+                if st.button("📢 Publicar Reto Global", type="primary"):
+                    if texto_reto.strip():
+                        db["reto_flash"] = {
+                            "texto": texto_reto.strip(),
+                            "recompensa": int(puntos_reto),
+                            "activo": True
+                        }
+                        guardar_datos(db)
+                        st.success("¡Reto publicado para todos los usuarios!")
+                        st.rerun()
+                    else:
+                        st.error("Introduce una descripción para el reto.")
 
             st.divider()
 
-            # --- SECCIÓN 4: VER Y VACIAR SUGERENCIAS ---
+            # --- SECCIÓN 4: GESTOR Y EDITOR DE CATÁLOGOS (NUEVO) ---
+            st.subheader("🎨 Gestor y Editor de Catálogos")
+            tab_cat1, tab_cat2 = st.tabs(["➕ Añadir Elemento", "✏️ Modificar / Eliminar Existente"])
+
+            with tab_cat1:
+                tipo_cat = st.radio("¿Dónde deseas añadirlo?", ["🛒 Gastar (Recompensa)", "💪 Ganar (Tarea)"], horizontal=True, key="adm_rad_add")
+
+                c_n1, c_n2 = st.columns([1, 3])
+                with c_n1:
+                    nuevo_emoji = st.text_input("Emoji", value="✨", key="adm_emoji")
+                with c_n2:
+                    nuevo_nombre = st.text_input("Nombre de la tarea/premio", key="adm_nombre")
+
+                c_n3, c_n4 = st.columns(2)
+                with c_n3:
+                    nuevo_valor = st.number_input("Valor en Créditos", min_value=1, value=15, key="adm_valor")
+                with c_n4:
+                    nuevo_limite = st.number_input("Límite diario", min_value=1, value=1, key="adm_limite")
+
+                es_destacado = st.checkbox("⭐ Destacar elemento", key="adm_destacado")
+
+                if st.button("Guardar en el Catálogo 💾", type="primary", key="btn_guardar_nuevo_cat"):
+                    if not nuevo_nombre:
+                        st.error("Por favor, introduce un nombre.")
+                    else:
+                        if tipo_cat.startswith("🛒"):
+                            lista_cat = db.get("catalogo_gastar", CATALOGO_GASTAR)
+                            nuevo_id = max([x["id"] for x in lista_cat], default=0) + 1
+                            nuevo_item = {
+                                "id": nuevo_id,
+                                "emoji": nuevo_emoji,
+                                "nombre": nuevo_nombre,
+                                "coste": int(nuevo_valor),
+                                "limite_diario": int(nuevo_limite)
+                            }
+                            if es_destacado:
+                                nuevo_item["destacado"] = True
+                            lista_cat.append(nuevo_item)
+                            db["catalogo_gastar"] = lista_cat
+                        else:
+                            lista_cat = db.get("catalogo_ganar", CATALOGO_GANAR)
+                            nuevo_id = max([x["id"] for x in lista_cat], default=100) + 1
+                            nuevo_item = {
+                                "id": nuevo_id,
+                                "emoji": nuevo_emoji,
+                                "nombre": nuevo_nombre,
+                                "recompensa": int(nuevo_valor),
+                                "limite_diario": int(nuevo_limite)
+                            }
+                            if es_destacado:
+                                nuevo_item["destacado"] = True
+                            lista_cat.append(nuevo_item)
+                            db["catalogo_ganar"] = lista_cat
+
+                        guardar_datos(db)
+                        st.toast("¡Elemento añadido al catálogo con éxito!", icon="🎉")
+                        st.rerun()
+
+            with tab_cat2:
+                tipo_cat_edit = st.radio("Selecciona catálogo a modificar", ["🛒 Recompensas (Gastar)", "💪 Tareas (Ganar)"], horizontal=True, key="adm_rad_edit")
+                
+                es_tienda = tipo_cat_edit.startswith("🛒")
+                lista_editar = db.get("catalogo_gastar" if es_tienda else "catalogo_ganar", CATALOGO_GASTAR if es_tienda else CATALOGO_GANAR)
+                
+                nombres_items = [f"{x['emoji']} {x['nombre']} (ID: {x['id']})" for x in lista_editar]
+                item_seleccionado_str = st.selectbox("Elige un elemento para editar o borrar", nombres_items, key="adm_sel_item_edit")
+
+                if item_seleccionado_str:
+                    id_sel = int(item_seleccionado_str.split("ID: ")[1].replace(")", ""))
+                    item_obj = next((x for x in lista_editar if x["id"] == id_sel), None)
+
+                    if item_obj:
+                        with st.form(key=f"form_edit_{id_sel}"):
+                            st.write(f"✏️ **Editando:** {item_obj['nombre']}")
+                            e_emoji = st.text_input("Emoji", value=item_obj.get("emoji", "✨"))
+                            e_nombre = st.text_input("Nombre", value=item_obj.get("nombre", ""))
+                            val_clave = "coste" if es_tienda else "recompensa"
+                            e_valor = st.number_input("Créditos", min_value=1, value=int(item_obj.get(val_clave, 10)))
+                            e_limite = st.number_input("Límite diario", min_value=1, value=int(item_obj.get("limite_diario", 1)))
+                            e_destacado = st.checkbox("⭐ Destacado", value=item_obj.get("destacado", False))
+
+                            c_save, c_del = st.columns(2)
+                            with c_save:
+                                submit_save = st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True)
+                            with c_del:
+                                submit_del = st.form_submit_button("🗑️ Eliminar Elemento", use_container_width=True)
+
+                            if submit_save:
+                                item_obj["emoji"] = e_emoji
+                                item_obj["nombre"] = e_nombre
+                                item_obj[val_clave] = int(e_valor)
+                                item_obj["limite_diario"] = int(e_limite)
+                                item_obj["destacado"] = e_destacado
+                                guardar_datos(db)
+                                st.toast("¡Elemento actualizado!", icon="✅")
+                                st.rerun()
+
+                            if submit_del:
+                                if es_tienda:
+                                    db["catalogo_gastar"] = [x for x in db["catalogo_gastar"] if x["id"] != id_sel]
+                                else:
+                                    db["catalogo_ganar"] = [x for x in db["catalogo_ganar"] if x["id"] != id_sel]
+                                guardar_datos(db)
+                                st.toast("¡Elemento eliminado!", icon="🗑️")
+                                st.rerun()
+
+            st.divider()
+
+            # --- SECCIÓN 5: AUDITORÍA DE ACTIVIDAD INTEGRAL (NUEVO) ---
+            st.subheader("📜 Auditoría Global de Actividad")
+            st.caption("Muestra todos los movimientos registrados en la app por orden cronológico.")
+
+            actividades_totales = []
+            for nombre_usr, datos_usr in db["usuarios"].items():
+                for item_h in datos_usr.get("historial", []):
+                    actividades_totales.append({
+                        "usuario": nombre_usr.capitalize(),
+                        "actividad": item_h.get("actividad", ""),
+                        "coste": item_h.get("coste", 0),
+                        "fecha": item_h.get("fecha", "")
+                    })
+
+            if not actividades_totales:
+                st.info("Aún no hay registros de actividad globales.")
+            else:
+                for act in reversed(actividades_totales[-20:]):
+                    c = act["coste"]
+                    signo = f"-{c} cr" if c > 0 else (f"+{abs(c)} cr" if c < 0 else "0 cr")
+                    
+                    c_aud1, c_aud2 = st.columns([3, 1])
+                    with c_aud1:
+                        st.markdown(f"👤 **{act['usuario']}** — {act['actividad']}")
+                    with c_aud2:
+                        st.caption(f"`{signo}` | {act['fecha']}")
+                    st.divider()
+
+            # --- SECCIÓN 6: SUGERENCIAS RECIBIDAS ---
             st.subheader("📥 Sugerencias Recibidas")
             if st.button("Vaciar todas las sugerencias 🗑️", key="btn_vaciar_sug_adm"):
                 db["sugerencias"] = []
