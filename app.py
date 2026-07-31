@@ -387,7 +387,7 @@ def renderizar_panel_principal():
         fecha_hoy = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y-%m-%d")
         stock = usr_data.setdefault("stock_usado", {}).setdefault(fecha_hoy, {})
 
-        cat_gastar = db.get("catalogo_gastar", CATALOGO_GASTAR_BASE)
+        cat_gastar = db.get("catalogo_gastar", CATALOGO_GASTAR)
         recompensas_filtradas = [r for r in cat_gastar if search_gastar in r["nombre"].lower()]
 
         if not recompensas_filtradas:
