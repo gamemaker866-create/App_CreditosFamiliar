@@ -1106,22 +1106,35 @@ def renderizar_panel_principal():
 
             # --- SECCIÓN 8: AUDITORÍA DE ACTIVIDAD INTEGRAL ---
             st.subheader("📜 Auditoría Global de Actividad")
-            st.caption("Muestra todos los movimientos registrados en la app por orden cronológico.")
-
+            st.caption("Muestra todos los movimientos de TODOS los usuarios por orden cronológico estricto.")
+            
             actividades_totales = []
+            
+            # Recorremos la base de datos de TODOS los usuarios
             for nombre_usr, datos_usr in db["usuarios"].items():
                 for item_h in datos_usr.get("historial", []):
                     actividades_totales.append({
                         "usuario": nombre_usr.capitalize(),
                         "actividad": item_h.get("actividad", ""),
                         "coste": item_h.get("coste", 0),
-                        "fecha": item_h.get("fecha", "")
+                        "fecha": item_h.get("fecha", "01/01/2000 00:00")
                     })
-
+            
             if not actividades_totales:
                 st.info("Aún no hay registros de actividad globales.")
             else:
-                for act in reversed(actividades_totales[-20:]):
+                # Función auxiliar para ordenar por fecha real (DD/MM/YYYY HH:MM)
+                def clave_fecha(x):
+                    try:
+                        return datetime.strptime(x["fecha"], "%d/%m/%Y %H:%M")
+                    except Exception:
+                        return datetime.min
+            
+                # Ordenamos de más reciente a más antiguo
+                actividades_ordenadas = sorted(actividades_totales, key=clave_fecha, reverse=True)
+            
+                # Mostramos los últimos 30 movimientos globales
+                for act in actividades_ordenadas[:30]:
                     c = act["coste"]
                     signo = f"-{c} cr" if c > 0 else (f"+{abs(c)} cr" if c < 0 else "0 cr")
                     
