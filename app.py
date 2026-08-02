@@ -447,8 +447,8 @@ def renderizar_panel_principal():
     # 2. CAJA MISTERIOSA / RULETA DIARIA
     with tab_misterio:
         st.subheader("🎁 Caja Misteriosa Diaria")
-        st.write("Prueba tu suerte abriendo la caja misteriosa. ¡Puede tocarte créditos, un vale especial o un divertido mensaje!")
-        st.info("📌 **Coste:** 20 créditos | ⏳ **Límite:** 1 vez al día")
+        st.write("Prueba tu suerte abriendo la caja misteriosa. ¡Puede tocarte créditos, un vale especial o un divertido mensaje o un premio trampa!")
+        st.info("📌 **Coste:** 10 créditos | ⏳ **Límite:** 1 vez al día")
 
         fecha_hoy = obtener_fecha_hoy()
         ultima_fecha_abierta = usr_data.get("ultima_caja_misterio")
@@ -456,12 +456,12 @@ def renderizar_panel_principal():
 
         if ya_abrio_hoy:
             st.warning("🔒 **Ya has abierto tu Caja Misteriosa de hoy.** Vuelve mañana a probar suerte.")
-        elif usr_data["creditos"] < 20:
-            st.error("❌ No tienes suficientes créditos para abrir la caja misteriosa (necesitas 20 cr).")
+        elif usr_data["creditos"] < 10:
+            st.error("❌ No tienes suficientes créditos para abrir la caja misteriosa (necesitas 10 cr).")
         elif usuario_bloqueado:
             st.error(f"🔒 **Cuenta bloqueada.** No puedes abrir la caja hasta el **{fecha_fin_bloqueo}**.")
         else:
-            if st.button("🎁 Abrir Caja Misteriosa (20 cr)", type="primary", use_container_width=True):
+            if st.button("🎁 Abrir Caja Misteriosa (10 cr)", type="primary", use_container_width=True):
                 premios_disponibles = db.get("premios_misterio", PREMIOS_MISTERIO_DEFECTO)
                 
                 if not premios_disponibles:
@@ -480,14 +480,14 @@ def renderizar_panel_principal():
                     # 2. Ahora random.choices se ejecuta sobre una lista 100% limpia de números
                     premio_ganado = random.choices(premios_disponibles, weights=pesos, k=1)[0]
                     
-                    usr_data["creditos"] -= 20
+                    usr_data["creditos"] -= 10
                     usr_data["ultima_caja_misterio"] = fecha_hoy
                     f_act = obtener_fecha_hora()
                 
                     # Cobro inicial de la apertura
                     usr_data.setdefault("historial", []).append({
                         "actividad": "🎁 Apertura de Caja Misteriosa",
-                        "coste": 20,
+                        "coste": 10,
                         "fecha": f_act
                     })
                 
