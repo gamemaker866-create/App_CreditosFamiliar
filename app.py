@@ -466,7 +466,8 @@ def renderizar_panel_principal():
                 
                 if not premios_disponibles:
                     st.error("No hay premios configurados en la caja misteriosa por el administrador.")
-               else:
+                    
+                else:
                     # Garantizamos que la lista de pesos solo tenga enteros numéricos
                     pesos = []
                     for p in premios_disponibles:
