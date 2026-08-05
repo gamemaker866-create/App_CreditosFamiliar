@@ -466,16 +466,18 @@ def renderizar_panel_principal():
                 
                 if not premios_disponibles:
                     st.error("No hay premios configurados en la caja misteriosa por el administrador.")
-                else:
-    # 1. Convertimos y sanitizamos la lista de pesos a enteros garantizados
+               else:
+                    # Garantizamos que la lista de pesos solo tenga enteros numéricos
                     pesos = []
                     for p in premios_disponibles:
                         try:
-                            # Convertimos a número y evitamos ceros o negativos
                             val_prob = int(p.get("probabilidad", 10))
                             pesos.append(max(1, val_prob))
                         except (ValueError, TypeError):
-                            pesos.append(10) # Peso de respaldo por si el dato viene corrupto
+                            pesos.append(10)
+                
+                    # Selección aleatoria segura
+                    premio_ganado = random.choices(premios_disponibles, weights=pesos, k=1)[0]
                 
                     # 2. Ahora random.choices se ejecuta sobre una lista 100% limpia de números
                     premio_ganado = random.choices(premios_disponibles, weights=pesos, k=1)[0]
