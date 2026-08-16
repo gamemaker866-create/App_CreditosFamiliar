@@ -1,5 +1,7 @@
 import streamlit as st
 import random
+import base64
+import io
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from supabase import create_client
@@ -91,6 +93,7 @@ DATOS_INICIALES = {
     "subasta_activa": None,
     "meta_comunitaria": None,
     "premios_misterio": PREMIOS_MISTERIO_DEFECTO,
+    "chats": {},
     "catalogo_gastar": CATALOGO_GASTAR,
     "catalogo_ganar": CATALOGO_GANAR,
     "usuarios": {
@@ -139,6 +142,7 @@ def cargar_datos():
             datos.setdefault("subasta_activa", None)
             datos.setdefault("meta_comunitaria", None)
             datos.setdefault("premios_misterio", PREMIOS_MISTERIO_DEFECTO)
+            datos.setdefault("chats", {})
             datos.setdefault("usuarios", {})
             datos.setdefault("catalogo_gastar", CATALOGO_GASTAR)
             datos.setdefault("catalogo_ganar", CATALOGO_GANAR)
@@ -182,6 +186,8 @@ def guardar_datos(datos):
 # -------------------------------------------------------------------
 if "usuario" not in st.session_state:
     st.session_state.usuario = None
+if "chat_privado" not in st.session_state:
+    st.session_state.chat_privado = None
 
 if not st.session_state.usuario:
     db = cargar_datos()
@@ -222,6 +228,84 @@ if not st.session_state.usuario:
                 guardar_datos(db)
                 st.success("¡Cuenta creada! Ya puedes iniciar sesión.")
     st.stop()
+
+# -------------------------------------------------------------------
+# CHAT PRIVADO Y ACTIVIDAD DE COMUNIDAD
+# -------------------------------------------------------------------
+def clave_chat(usuario_a, usuario_b):
+    return "__".join(sorted([usuario_a, usuario_b]))
+
+def obtener_chat(db, usuario_a, usuario_b):
+    db.setdefault("chats", {})
+    return db["chats"].setdefault(clave_chat(usuario_a, usuario_b), [])
+
+def guardar_foto_como_base64(uploaded_file):
+    if uploaded_file is None:
+        return None
+    datos_foto = uploaded_file.getvalue()
+    return {
+        "nombre": uploaded_file.name,
+        "tipo": uploaded_file.type or "image/jpeg",
+        "datos": base64.b64encode(datos_foto).decode("utf-8")
+    }
+
+def renderizar_chat_privado(db, usr, amigo):
+    st.divider()
+    st.subheader(f"💬 Chat privado con {amigo.capitalize()}")
+
+    if st.button("⬅️ Cerrar chat", key=f"cerrar_chat_{amigo}"):
+        st.session_state.chat_privado = None
+        st.rerun()
+
+    mensajes = obtener_chat(db, usr, amigo)
+
+    if not mensajes:
+        st.info("Todavía no hay mensajes. ¡Empieza la conversación!")
+    else:
+        for idx_msg, mensaje in enumerate(mensajes):
+            es_mio = mensaje.get("de") == usr
+            autor = "Tú" if es_mio else amigo.capitalize()
+            with st.container(border=True):
+                st.caption(f"**{autor}** · {mensaje.get('fecha', '')}")
+                texto = mensaje.get("texto", "")
+                if texto:
+                    st.write(texto)
+                foto = mensaje.get("foto")
+                if foto and foto.get("datos"):
+                    try:
+                        imagen_bytes = base64.b64decode(foto["datos"])
+                        st.image(io.BytesIO(imagen_bytes), caption=foto.get("nombre", "Foto"), use_container_width=True)
+                    except Exception:
+                        st.warning("No se pudo mostrar esta foto.")
+
+    st.markdown("**Enviar mensaje**")
+    texto_chat = st.text_area(
+        "Mensaje",
+        key=f"chat_text_{amigo}",
+        placeholder="Escribe un mensaje...",
+        label_visibility="collapsed"
+    ).strip()
+    foto_chat = st.file_uploader(
+        "📷 Añadir foto",
+        type=["jpg", "jpeg", "png", "webp", "gif"],
+        key=f"chat_photo_{amigo}"
+    )
+
+    if st.button("Enviar ➤", key=f"enviar_chat_{amigo}", type="primary", use_container_width=True):
+        if not texto_chat and foto_chat is None:
+            st.warning("Escribe un mensaje o selecciona una foto antes de enviar.")
+        else:
+            mensaje_nuevo = {
+                "de": usr,
+                "para": amigo,
+                "texto": texto_chat,
+                "fecha": obtener_fecha_hora(),
+                "foto": guardar_foto_como_base64(foto_chat)
+            }
+            mensajes.append(mensaje_nuevo)
+            guardar_datos(db)
+            st.toast("Mensaje enviado", icon="💬")
+            st.rerun()
 
 # -------------------------------------------------------------------
 # PANEL PRINCIPAL
@@ -680,7 +764,29 @@ def renderizar_panel_principal():
         else:
             for idx, a in enumerate(amigos):
                 data_a = db["usuarios"].get(a, {})
-                with st.expander(f"👤 {a.capitalize()} — Saldo: {data_a.get('creditos', 0)} cr"):
+
+                # Persona + botón de chat privado al lado
+                c_persona, c_chat = st.columns([5, 1])
+                with c_persona:
+                    st.markdown(f"### 👤 {a.capitalize()}")
+                    st.caption(f"Saldo: {data_a.get('creditos', 0)} cr")
+                with c_chat:
+                    if st.button("🗨️", key=f"abrir_chat_{idx}_{a}", help=f"Abrir chat privado con {a.capitalize()}"):
+                        st.session_state.chat_privado = a
+                        st.rerun()
+
+                with st.expander(f"Ver información de {a.capitalize()}"):
+                    # Últimas tres actividades de esta persona
+                    st.markdown("**🕒 Últimas 3 cosas que ha hecho**")
+                    historial_amigo = data_a.get("historial", [])
+                    ultimas_3 = list(reversed(historial_amigo[-3:]))
+                    if not ultimas_3:
+                        st.caption("Todavía no hay actividad registrada.")
+                    else:
+                        for actividad in ultimas_3:
+                            st.write(f"• {actividad.get('actividad', 'Actividad')} — `{actividad.get('fecha', '')}`")
+
+                    st.divider()
                     max_tr = max(1, usr_data["creditos"])
                     monto = st.number_input(
                         f"Transferir créditos a {a.capitalize()}", 
@@ -700,6 +806,11 @@ def renderizar_panel_principal():
                             st.rerun()
                         else:
                             st.error("No tienes suficientes créditos")
+
+            # El chat se muestra debajo de la comunidad sin alterar el resto del panel.
+            amigo_chat = st.session_state.get("chat_privado")
+            if amigo_chat in amigos:
+                renderizar_chat_privado(db, usr, amigo_chat)
 
     # 6. PESTAÑA EXCLUSIVA DE ADMIN (solo visible para 'eric')
     if usr == "eric" and tab_admin is not None:
