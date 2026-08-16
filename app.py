@@ -571,12 +571,7 @@ def renderizar_panel_principal():
                     usr_data["ultima_caja_misterio"] = fecha_hoy
                     f_act = obtener_fecha_hora()
                 
-                    # Cobro inicial de la apertura
-                    usr_data.setdefault("historial", []).append({
-                        "actividad": "🎁 Apertura de Caja Misteriosa",
-                        "coste": 10,
-                        "fecha": f_act
-                    })
+                    # La apertura de la caja no se registra como evento.
                 
                     tipo = premio_ganado.get("tipo", "mensaje")
                     emoji = premio_ganado.get("emoji", "🎁")
