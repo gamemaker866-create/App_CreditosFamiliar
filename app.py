@@ -300,7 +300,8 @@ def renderizar_chat_privado(db, usr, amigo):
                 "para": amigo,
                 "texto": texto_chat,
                 "fecha": obtener_fecha_hora(),
-                "foto": guardar_foto_como_base64(foto_chat)
+                "foto": guardar_foto_como_base64(foto_chat),
+                "leido": True
             }
             mensajes.append(mensaje_nuevo)
             guardar_datos(db)
@@ -766,7 +767,24 @@ def renderizar_panel_principal():
                     st.markdown(f"### 👤 {a.capitalize()}")
                     st.caption(f"Saldo: {data_a.get('creditos', 0)} cr")
                 with c_chat:
-                    if st.button("🗨️", key=f"abrir_chat_{idx}_{a}", help=f"Abrir chat privado con {a.capitalize()}"):
+                    # 🔔 Indicador de mensajes nuevos/no leídos
+                    chat_actual = obtener_chat(db, usr, a)
+                    no_leidos = sum(
+                        1 for mensaje in chat_actual
+                        if mensaje.get("de") == a and not mensaje.get("leido", False)
+                    )
+                    etiqueta_chat = f"🗨️ 🔴 {no_leidos}" if no_leidos else "🗨️"
+
+                    if st.button(
+                        etiqueta_chat,
+                        key=f"abrir_chat_{idx}_{a}",
+                        help=f"Abrir chat privado con {a.capitalize()}"
+                    ):
+                        # Al abrir el chat, marcamos como leídos los mensajes recibidos.
+                        for mensaje in chat_actual:
+                            if mensaje.get("de") == a:
+                                mensaje["leido"] = True
+                        guardar_datos(db)
                         st.session_state.chat_privado = a
                         st.rerun()
 
