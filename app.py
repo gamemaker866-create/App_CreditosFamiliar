@@ -156,6 +156,8 @@ def cargar_datos():
                 u_data["solicitudes_recibidas"] = list(dict.fromkeys(u_data.get("solicitudes_recibidas", [])))
                 u_data.setdefault("bloqueado_hasta", None)
                 u_data.setdefault("ultima_caja_misterio", None)
+                u_data.setdefault("historial", [])
+                u_data.setdefault("amigos", [])
 
             semana_hoy = datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1]
             if datos.get("semana_actual") != semana_hoy:
@@ -463,13 +465,172 @@ def renderizar_panel_principal():
                     )
                     st.caption(f"📅 **Fecha de activación:** {item_hist['fecha']}")
 
+                    # 🤝 TARJETA ESPECIAL: ALIANZA
+                    # No necesitamos crear/configurar otro premio en el panel admin:
+                    # cualquier premio cuyo nombre sea "Alianza" funciona con esta lógica.
+                    es_alianza = str(item_hist.get("actividad", "")).lower().find("alianza") >= 0
+
+                    if es_alianza and not ya_usado:
+                        amigos_alianza = [
+                            a for a in usr_data.get("amigos", [])
+                            if a in db.get("usuarios", {}) and a != usr
+                        ]
+                        tareas_alianza = db.get("catalogo_ganar", CATALOGO_GANAR)
+
+                        if not amigos_alianza:
+                            st.warning("👥 Necesitas tener al menos una persona en Comunidad para usar esta Alianza.")
+                        elif not tareas_alianza:
+                            st.warning("🎯 No hay tareas disponibles en el catálogo de Ganar.")
+                        else:
+                            st.markdown("### 🤝 Usa tu Alianza")
+                            st.caption("Elige a una persona de tu Comunidad y una tarea de **Ganar**. Esa persona recibirá el aviso y, al completar la Alianza, ambos compartiréis la recompensa.")
+
+                            objetivo_actual = item_hist.get("alianza_persona")
+                            tarea_actual_id = item_hist.get("alianza_tarea_id")
+
+                            nombres_amigos = [a.capitalize() for a in amigos_alianza]
+                            indice_amigo = (
+                                amigos_alianza.index(objetivo_actual)
+                                if objetivo_actual in amigos_alianza else 0
+                            )
+
+                            tareas_labels = [
+                                f"{t.get('emoji', '🎯')} {t.get('nombre', 'Tarea')} — {t.get('recompensa', 0)} cr"
+                                for t in tareas_alianza
+                            ]
+                            indice_tarea = 0
+                            if tarea_actual_id is not None:
+                                for i, t in enumerate(tareas_alianza):
+                                    if str(t.get("id")) == str(tarea_actual_id):
+                                        indice_tarea = i
+                                        break
+
+                            with st.form(key=f"alianza_form_{idx_sel}"):
+                                persona_elegida = st.selectbox(
+                                    "👤 Persona que te ayudará",
+                                    nombres_amigos,
+                                    index=indice_amigo
+                                )
+                                tarea_elegida_label = st.selectbox(
+                                    "🎯 Tarea de Ganar",
+                                    tareas_labels,
+                                    index=indice_tarea
+                                )
+                                confirmar_alianza = st.form_submit_button(
+                                    "🤝 Elegir y enviar la alianza",
+                                    use_container_width=True,
+                                    type="primary"
+                                )
+
+                            if confirmar_alianza:
+                                persona_elegida_real = amigos_alianza[nombres_amigos.index(persona_elegida)]
+                                tarea_elegida = tareas_alianza[tareas_labels.index(tarea_elegida_label)]
+
+                                # Guardamos la elección dentro de la propia tarjeta.
+                                item_hist["alianza_persona"] = persona_elegida_real
+                                item_hist["alianza_tarea_id"] = tarea_elegida.get("id")
+                                item_hist["alianza_tarea_nombre"] = tarea_elegida.get("nombre", "")
+                                item_hist["alianza_recompensa"] = int(tarea_elegida.get("recompensa", 0))
+                                item_hist["alianza_enviada"] = True
+
+                                # Aviso en el historial privado de la persona elegida.
+                                destino_data = db["usuarios"][persona_elegida_real]
+                                mensaje_alianza = (
+                                    f"🤝 {usr.capitalize()} te ha elegido para ayudarle a "
+                                    f"{tarea_elegida.get('nombre', 'una tarea')}"
+                                )
+                                destino_data.setdefault("historial", []).append({
+                                    "actividad": mensaje_alianza,
+                                    "coste": 0,
+                                    "fecha": obtener_fecha_hora(),
+                                    "es_alianza": True,
+                                    "alianza_de": usr,
+                                    "alianza_tarea_id": tarea_elegida.get("id"),
+                                    "alianza_recompensa": int(tarea_elegida.get("recompensa", 0))
+                                })
+
+                                guardar_datos(db)
+                                st.success(
+                                    f"🤝 Has elegido a **{persona_elegida_real.capitalize()}** "
+                                    f"para ayudarte con **{tarea_elegida.get('nombre', '')}**."
+                                )
+                                st.rerun()
+
+                        # Si ya se eligió a alguien, mostramos el resumen y permitimos completar.
+                        if item_hist.get("alianza_enviada"):
+                            recompensa = int(item_hist.get("alianza_recompensa", 0))
+                            persona = item_hist.get("alianza_persona", "")
+                            tarea_nombre = item_hist.get("alianza_tarea_nombre", "")
+
+                            st.info(
+                                f"🤝 **Alianza preparada:** {persona.capitalize()} te ayuda con "
+                                f"**{tarea_nombre}** · recompensa total: **{recompensa} cr**"
+                            )
+
                     c_btn1, c_btn2 = st.columns(2)
                     with c_btn1:
-                        if st.button("Marcar como Usado ✅", use_container_width=True, disabled=ya_usado, type="primary"):
-                            usr_data["historial"][idx_sel]["usado"] = True
-                            guardar_datos(db)
-                            st.toast("¡Recompensa completada!", icon="✔")
-                            st.rerun()
+                        puede_usar_alianza = (
+                            not es_alianza
+                            or (
+                                bool(item_hist.get("alianza_enviada"))
+                                and bool(item_hist.get("alianza_persona"))
+                                and item_hist.get("alianza_recompensa") is not None
+                            )
+                        )
+                        if st.button(
+                            "Marcar como Usado ✅",
+                            use_container_width=True,
+                            disabled=ya_usado or not puede_usar_alianza,
+                            type="primary"
+                        ):
+                            if es_alianza:
+                                persona = item_hist.get("alianza_persona")
+                                recompensa = int(item_hist.get("alianza_recompensa", 0))
+
+                                if persona not in db.get("usuarios", {}):
+                                    st.error("La persona elegida ya no existe.")
+                                else:
+                                    # Si la recompensa es impar, el crédito extra va al aliado elegido.
+                                    parte_elegido = (recompensa + 1) // 2
+                                    parte_poseedor = recompensa // 2
+
+                                    usr_data["creditos"] = usr_data.get("creditos", 0) + parte_poseedor
+                                    db["usuarios"][persona]["creditos"] = (
+                                        db["usuarios"][persona].get("creditos", 0) + parte_elegido
+                                    )
+
+                                    f_reparto = obtener_fecha_hora()
+                                    usr_data.setdefault("historial", []).append({
+                                        "actividad": (
+                                            f"🤝 Alianza completada con {persona.capitalize()}: "
+                                            f"{parte_poseedor} cr para ti"
+                                        ),
+                                        "coste": -parte_poseedor,
+                                        "fecha": f_reparto
+                                    })
+                                    db["usuarios"][persona].setdefault("historial", []).append({
+                                        "actividad": (
+                                            f"🤝 Alianza completada con {usr.capitalize()}: "
+                                            f"{parte_elegido} cr para ti"
+                                        ),
+                                        "coste": -parte_elegido,
+                                        "fecha": f_reparto,
+                                        "es_alianza": True
+                                    })
+
+                                    item_hist["usado"] = True
+                                    guardar_datos(db)
+                                    st.toast(
+                                        f"¡Alianza completada! {parte_poseedor} cr para ti y "
+                                        f"{parte_elegido} cr para {persona.capitalize()}.",
+                                        icon="🤝"
+                                    )
+                                    st.rerun()
+                            else:
+                                usr_data["historial"][idx_sel]["usado"] = True
+                                guardar_datos(db)
+                                st.toast("¡Recompensa completada!", icon="✔")
+                                st.rerun()
                     with c_btn2:
                         if st.button("Cerrar tarjeta ❌", use_container_width=True):
                             st.session_state.tarjeta_activa = None
