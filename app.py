@@ -86,6 +86,39 @@ PREMIOS_MISTERIO_DEFECTO = [
     {"id": 5, "emoji": "🎟️", "nombre": "Vale de DJ del coche", "tipo": "vale", "valor": 0, "texto": "Elegir la música en el próximo viaje en coche", "probabilidad": 15}
 ]
 
+# 🏆 Logros: objetivos reales relacionados con tareas, constancia, colaboración y créditos.
+LOGROS_DEFINIDOS = [
+    {"id": "primera_tarea", "emoji": "🧹", "nombre": "Primer paso", "descripcion": "Completa tu primera tarea."},
+    {"id": "tareas_10", "emoji": "💪", "nombre": "Manos a la obra", "descripcion": "Completa 10 tareas."},
+    {"id": "tareas_25", "emoji": "🏠", "nombre": "Ayuda en casa", "descripcion": "Completa 25 tareas."},
+    {"id": "tareas_50", "emoji": "🌟", "nombre": "Gran ayuda", "descripcion": "Completa 50 tareas."},
+    {"id": "tareas_100", "emoji": "🏆", "nombre": "Imprescindible", "descripcion": "Completa 100 tareas."},
+    {"id": "racha_7", "emoji": "📅", "nombre": "Una semana constante", "descripcion": "Completa al menos una tarea durante 7 días consecutivos."},
+    {"id": "racha_14", "emoji": "🔥", "nombre": "Dos semanas constantes", "descripcion": "Completa al menos una tarea durante 14 días consecutivos."},
+    {"id": "alianzas_1", "emoji": "🤝", "nombre": "Buen compañero", "descripcion": "Completa tu primera Alianza."},
+    {"id": "alianzas_5", "emoji": "🤝", "nombre": "Trabajo en equipo", "descripcion": "Completa 5 Alianzas."},
+    {"id": "ganados_250", "emoji": "📈", "nombre": "Créditos acumulados", "descripcion": "Acumula 250 créditos obtenidos a lo largo del tiempo."},
+    {"id": "ganados_500", "emoji": "💰", "nombre": "Buen ritmo", "descripcion": "Acumula 500 créditos obtenidos a lo largo del tiempo."},
+    {"id": "ganados_1000", "emoji": "💎", "nombre": "Gran acumulador", "descripcion": "Acumula 1.000 créditos obtenidos a lo largo del tiempo."},
+    {"id": "ahorro_150", "emoji": "🐷", "nombre": "Primer ahorro", "descripcion": "Llega a tener 150 créditos al mismo tiempo."},
+    {"id": "ahorro_250", "emoji": "🏦", "nombre": "Ahorrador", "descripcion": "Llega a tener 250 créditos al mismo tiempo."},
+    {"id": "ahorro_500", "emoji": "💎", "nombre": "Gran ahorrador", "descripcion": "Llega a tener 500 créditos al mismo tiempo."},
+]
+
+EVENTOS_PREDETERMINADOS = [
+    {"id": "esfuerzo", "emoji": "💪", "nombre": "Semana del esfuerzo", "descripcion": "+10% en todas las tareas de Ganar.", "efecto": "multiplicador", "valor": 1.10},
+    {"id": "limpieza", "emoji": "🧹", "nombre": "Casa en orden", "descripcion": "+25% en tareas relacionadas con limpieza y orden.", "efecto": "categoria", "valor": 1.25, "palabras": ["limpiar", "limpieza", "recoger", "basura", "lavar", "estantería", "estanteria"]},
+    {"id": "cocina", "emoji": "🍽️", "nombre": "Cocina en orden", "descripcion": "+25% en tareas relacionadas con cocina y mesa.", "efecto": "categoria", "valor": 1.25, "palabras": ["platos", "mesa", "lavavajillas", "cocina"]},
+    {"id": "ropa", "emoji": "👕", "nombre": "Ropa al día", "descripcion": "+25% en tareas relacionadas con ropa y tendedero.", "efecto": "categoria", "valor": 1.25, "palabras": ["ropa", "tendedero", "lavadora", "doblar"]},
+    {"id": "pequenos", "emoji": "✨", "nombre": "Todo cuenta", "descripcion": "Las tareas que dan hasta 10 créditos reciben +5 créditos.", "efecto": "bonus_pequeno", "valor": 5},
+    {"id": "constancia", "emoji": "📅", "nombre": "Constancia diaria", "descripcion": "La primera tarea completada de cada día da +10 créditos extra.", "efecto": "primera_dia", "valor": 10},
+    {"id": "fin_semana", "emoji": "🏡", "nombre": "Fin de semana productivo", "descripcion": "+20% en tareas completadas sábado y domingo.", "efecto": "fin_semana", "valor": 1.20},
+    {"id": "jardin", "emoji": "🌱", "nombre": "Casa y plantas", "descripcion": "+25% en tareas relacionadas con plantas y exteriores.", "efecto": "categoria", "valor": 1.25, "palabras": ["plantas", "regar", "jardín", "jardin", "exterior"]},
+    {"id": "alianza", "emoji": "🤝", "nombre": "Ayuda en equipo", "descripcion": "Las recompensas repartidas mediante Alianza reciben +10% antes de dividirse.", "efecto": "alianza", "valor": 1.10},
+    {"id": "especial", "emoji": "⭐", "nombre": "Semana especial", "descripcion": "+15% en todas las tareas de Ganar.", "efecto": "multiplicador", "valor": 1.15},
+]
+
+
 DATOS_INICIALES = {
     "semana_actual": datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1],
     "sugerencias": [],
@@ -93,6 +126,7 @@ DATOS_INICIALES = {
     "subasta_activa": None,
     "meta_comunitaria": None,
     "premios_misterio": PREMIOS_MISTERIO_DEFECTO,
+    "evento_activo": None,
     "chats": {},
     "catalogo_gastar": CATALOGO_GASTAR,
     "catalogo_ganar": CATALOGO_GANAR,
@@ -100,6 +134,8 @@ DATOS_INICIALES = {
         "eric": {
             "password": "2020_Electronica",
             "creditos": 100,
+            "max_creditos": 100,
+            "creditos_acumulados": 0,
             "historial": [],
             "logros": [],
             "stock_usado": {},
@@ -142,6 +178,7 @@ def cargar_datos():
             datos.setdefault("subasta_activa", None)
             datos.setdefault("meta_comunitaria", None)
             datos.setdefault("premios_misterio", PREMIOS_MISTERIO_DEFECTO)
+            datos.setdefault("evento_activo", None)
             datos.setdefault("chats", {})
             datos.setdefault("usuarios", {})
             datos.setdefault("catalogo_gastar", CATALOGO_GASTAR)
@@ -157,6 +194,9 @@ def cargar_datos():
                 u_data.setdefault("bloqueado_hasta", None)
                 u_data.setdefault("ultima_caja_misterio", None)
                 u_data.setdefault("historial", [])
+                u_data.setdefault("logros", [])
+                u_data.setdefault("max_creditos", u_data.get("creditos", 0))
+                u_data.setdefault("creditos_acumulados", 0)
                 u_data.setdefault("amigos", [])
 
             semana_hoy = datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1]
@@ -177,6 +217,109 @@ def cargar_datos():
         st.error(f"Error cargando datos de Supabase: {e}")
         return DATOS_INICIALES
 
+def _tareas_completadas(usr_data, catalogo_ganar):
+    nombres = {str(t.get("nombre", "")) for t in catalogo_ganar}
+    return [h for h in usr_data.get("historial", []) if h.get("actividad", "") in nombres]
+
+def _dias_consecutivos_tareas(usr_data, catalogo_ganar):
+    fechas = set()
+    nombres = {str(t.get("nombre", "")) for t in catalogo_ganar}
+    for h in usr_data.get("historial", []):
+        if h.get("actividad", "") in nombres:
+            try:
+                fechas.add(datetime.strptime(h.get("fecha", ""), "%d/%m/%Y %H:%M").date())
+            except Exception:
+                pass
+    if not fechas:
+        return 0
+    mejor = actual = 1
+    ordenadas = sorted(fechas)
+    for a, b in zip(ordenadas, ordenadas[1:]):
+        if (b - a).days == 1:
+            actual += 1
+            mejor = max(mejor, actual)
+        else:
+            actual = 1
+    return mejor
+
+def obtener_logros_definidos():
+    """Devuelve los logros sin depender de que el global exista en el orden de carga."""
+    return globals().get("LOGROS_DEFINIDOS", [
+        {"id": "primera_tarea", "emoji": "🧹", "nombre": "Primer paso", "descripcion": "Completa tu primera tarea."},
+        {"id": "tareas_10", "emoji": "💪", "nombre": "Manos a la obra", "descripcion": "Completa 10 tareas."},
+        {"id": "tareas_25", "emoji": "🏠", "nombre": "Ayuda en casa", "descripcion": "Completa 25 tareas."},
+        {"id": "tareas_50", "emoji": "🌟", "nombre": "Gran ayuda", "descripcion": "Completa 50 tareas."},
+        {"id": "tareas_100", "emoji": "🏆", "nombre": "Imprescindible", "descripcion": "Completa 100 tareas."},
+        {"id": "racha_7", "emoji": "📅", "nombre": "Una semana constante", "descripcion": "Completa al menos una tarea durante 7 días consecutivos."},
+        {"id": "racha_14", "emoji": "🔥", "nombre": "Dos semanas constantes", "descripcion": "Completa al menos una tarea durante 14 días consecutivos."},
+        {"id": "alianzas_1", "emoji": "🤝", "nombre": "Buen compañero", "descripcion": "Completa tu primera Alianza."},
+        {"id": "alianzas_5", "emoji": "🤝", "nombre": "Trabajo en equipo", "descripcion": "Completa 5 Alianzas."},
+        {"id": "ganados_250", "emoji": "📈", "nombre": "Créditos acumulados", "descripcion": "Acumula 250 créditos obtenidos a lo largo del tiempo."},
+        {"id": "ganados_500", "emoji": "💰", "nombre": "Buen ritmo", "descripcion": "Acumula 500 créditos obtenidos a lo largo del tiempo."},
+        {"id": "ganados_1000", "emoji": "💎", "nombre": "Gran acumulador", "descripcion": "Acumula 1.000 créditos obtenidos a lo largo del tiempo."},
+        {"id": "ahorro_150", "emoji": "🐷", "nombre": "Primer ahorro", "descripcion": "Llega a tener 150 créditos al mismo tiempo."},
+        {"id": "ahorro_250", "emoji": "🏦", "nombre": "Ahorrador", "descripcion": "Llega a tener 250 créditos al mismo tiempo."},
+        {"id": "ahorro_500", "emoji": "💎", "nombre": "Gran ahorrador", "descripcion": "Llega a tener 500 créditos al mismo tiempo."},
+    ])
+
+def actualizar_logros_usuario(usr_data, catalogo_ganar):
+    historial = usr_data.get("historial", [])
+    tareas = _tareas_completadas(usr_data, catalogo_ganar)
+    n_tareas = len(tareas)
+    n_alianzas = sum(1 for h in historial if "🤝 Alianza completada" in str(h.get("actividad", "")))
+    mejor_racha = _dias_consecutivos_tareas(usr_data, catalogo_ganar)
+
+    # Métricas históricas de créditos. Las ganancias se acumulan y no se pierden
+    # cuando llega el reinicio semanal.
+    ganados_calculados = sum(max(0, -int(h.get("coste", 0) or 0)) for h in historial)
+    usr_data["creditos_acumulados"] = max(int(usr_data.get("creditos_acumulados", 0)), ganados_calculados)
+    usr_data["max_creditos"] = max(int(usr_data.get("max_creditos", 0)), int(usr_data.get("creditos", 0)))
+
+    condiciones = {
+        "primera_tarea": n_tareas >= 1, "tareas_10": n_tareas >= 10, "tareas_25": n_tareas >= 25,
+        "tareas_50": n_tareas >= 50, "tareas_100": n_tareas >= 100, "racha_7": mejor_racha >= 7,
+        "racha_14": mejor_racha >= 14, "alianzas_1": n_alianzas >= 1, "alianzas_5": n_alianzas >= 5,
+        "ganados_250": usr_data["creditos_acumulados"] >= 250, "ganados_500": usr_data["creditos_acumulados"] >= 500,
+        "ganados_1000": usr_data["creditos_acumulados"] >= 1000, "ahorro_150": usr_data["max_creditos"] >= 150,
+        "ahorro_250": usr_data["max_creditos"] >= 250, "ahorro_500": usr_data["max_creditos"] >= 500,
+    }
+    actuales = set(usr_data.setdefault("logros", []))
+    logros_definidos = obtener_logros_definidos()
+    nuevos = [l["id"] for l in logros_definidos if condiciones.get(l["id"], False) and l["id"] not in actuales]
+    if nuevos:
+        usr_data["logros"].extend(nuevos)
+        return True
+    return False
+
+def actualizar_logros_todos(db):
+    cambio = False
+    for datos_usr in db.get("usuarios", {}).values():
+        if actualizar_logros_usuario(datos_usr, db.get("catalogo_ganar", CATALOGO_GANAR)):
+            cambio = True
+    return cambio
+
+def recompensa_tarea_con_evento(item, db, usr_data):
+    base = int(item.get("recompensa", 0))
+    evento = db.get("evento_activo")
+    if not evento:
+        return base
+    efecto = evento.get("efecto")
+    nombre = str(item.get("nombre", "")).lower()
+    if efecto == "multiplicador":
+        return max(1, round(base * float(evento.get("valor", 1))))
+    if efecto == "categoria" and any(p in nombre for p in evento.get("palabras", [])):
+        return max(1, round(base * float(evento.get("valor", 1))))
+    if efecto == "bonus_pequeno" and base <= 10:
+        return base + int(evento.get("valor", 5))
+    if efecto == "primera_dia":
+        hoy = obtener_fecha_hoy()
+        ya_hizo = any(h.get("fecha", "").startswith(datetime.now(ZoneInfo("Europe/Madrid")).strftime("%d/%m/%Y")) and h.get("actividad") in {t.get("nombre") for t in db.get("catalogo_ganar", CATALOGO_GANAR)} for h in usr_data.get("historial", []))
+        return base + int(evento.get("valor", 10)) if not ya_hizo else base
+    if efecto == "fin_semana":
+        if datetime.now(ZoneInfo("Europe/Madrid")).weekday() >= 5:
+            return max(1, round(base * float(evento.get("valor", 1.20))))
+    return base
+
 def guardar_datos(datos):
     try:
         supabase.table("estado_app").upsert({"id": 1, "datos": datos}).execute()
@@ -193,6 +336,8 @@ if "chat_privado" not in st.session_state:
 
 if not st.session_state.usuario:
     db = cargar_datos()
+    if actualizar_logros_todos(db):
+        guardar_datos(db)
     st.title("🔑 ACF — Acceso")
     
     tab_login, tab_reg = st.tabs(["Iniciar Sesión", "Registrarse"])
@@ -219,6 +364,8 @@ if not st.session_state.usuario:
                 db["usuarios"][r_user] = {
                     "password": r_pass,
                     "creditos": 100,
+                    "max_creditos": 100,
+                    "creditos_acumulados": 0,
                     "historial": [],
                     "logros": [],
                     "stock_usado": {},
@@ -230,6 +377,10 @@ if not st.session_state.usuario:
                 guardar_datos(db)
                 st.success("¡Cuenta creada! Ya puedes iniciar sesión.")
     st.stop()
+
+db = cargar_datos()
+if actualizar_logros_todos(db):
+    guardar_datos(db)
 
 # -------------------------------------------------------------------
 # CHAT PRIVADO Y ACTIVIDAD DE COMUNIDAD
@@ -590,13 +741,24 @@ def renderizar_panel_principal():
                                 if persona not in db.get("usuarios", {}):
                                     st.error("La persona elegida ya no existe.")
                                 else:
+                                    # Un evento de Alianza puede aumentar la recompensa antes de dividirla.
+                                    recompensa_total = recompensa
+                                    evento = db.get("evento_activo")
+                                    if evento and evento.get("efecto") == "alianza":
+                                        recompensa_total = max(1, round(recompensa * float(evento.get("valor", 1.10))))
+
                                     # Si la recompensa es impar, el crédito extra va al aliado elegido.
-                                    parte_elegido = (recompensa + 1) // 2
-                                    parte_poseedor = recompensa // 2
+                                    parte_elegido = (recompensa_total + 1) // 2
+                                    parte_poseedor = recompensa_total // 2
 
                                     usr_data["creditos"] = usr_data.get("creditos", 0) + parte_poseedor
+                                    usr_data["max_creditos"] = max(usr_data.get("max_creditos", 0), usr_data["creditos"])
                                     db["usuarios"][persona]["creditos"] = (
                                         db["usuarios"][persona].get("creditos", 0) + parte_elegido
+                                    )
+                                    db["usuarios"][persona]["max_creditos"] = max(
+                                        db["usuarios"][persona].get("max_creditos", 0),
+                                        db["usuarios"][persona]["creditos"]
                                     )
 
                                     f_reparto = obtener_fecha_hora()
@@ -788,6 +950,9 @@ def renderizar_panel_principal():
     # 3. GANAR CRÉDITOS
     with tab_ganar:
         st.subheader("Completa tareas para ganar créditos")
+        if db.get("evento_activo"):
+            evento_visible = db["evento_activo"]
+            st.info(f"⚡ **Evento activo: {evento_visible.get('emoji', '⚡')} {evento_visible.get('nombre', '')}** — {evento_visible.get('descripcion', '')}")
         if usuario_bloqueado:
             st.error(f"🔒 **Cuenta bloqueada.** No puedes realizar tareas hasta el **{fecha_fin_bloqueo}**.")
         
@@ -811,15 +976,17 @@ def renderizar_panel_principal():
                     st.markdown(f"**{item['emoji']} {item['nombre']}** \n`+{item['recompensa']} cr` | Disponibles: {disp}/{item['limite_diario']}")
                 with c2:
                     if st.button("Completar", key=f"ganar_{item['id']}", disabled=not puede_hacer):
-                        usr_data["creditos"] += item["recompensa"]
+                        recompensa_final = recompensa_tarea_con_evento(item, db, usr_data)
+                        usr_data["creditos"] += recompensa_final
+                        usr_data["max_creditos"] = max(usr_data.get("max_creditos", 0), usr_data["creditos"])
                         stock[str(item["id"])] = usados + 1
                         usr_data["historial"].append({
                             "actividad": f"{item['emoji']} {item['nombre']}", 
-                            "coste": -item["recompensa"], 
+                            "coste": -recompensa_final, 
                             "fecha": obtener_fecha_hora()
                         })
                         guardar_datos(db)
-                        st.toast(f"¡+{item['recompensa']} créditos obtenidos!", icon="💰")
+                        st.toast(f"¡+{recompensa_final} créditos obtenidos!", icon="💰")
                         st.rerun()
                 st.divider()
 
@@ -959,6 +1126,16 @@ def renderizar_panel_principal():
                     else:
                         for actividad in ultimas_3:
                             st.write(f"• {actividad.get('actividad', 'Actividad')} — `{actividad.get('fecha', '')}`")
+
+                    st.divider()
+                    st.markdown("**🏆 Logros conseguidos**")
+                    logros_amigo = data_a.get("logros", [])
+                    definidos_amigo = [l for l in obtener_logros_definidos() if l["id"] in logros_amigo]
+                    if not definidos_amigo:
+                        st.caption("Todavía no tiene logros conseguidos.")
+                    else:
+                        for logro in definidos_amigo:
+                            st.write(f"{logro['emoji']} **{logro['nombre']}** — {logro['descripcion']}")
 
                     st.divider()
                     max_tr = max(1, usr_data["creditos"])
@@ -1392,7 +1569,31 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 8: AUDITORÍA DE ACTIVIDAD INTEGRAL ---
+            # --- SECCIÓN 8: EVENTOS PREDETERMINADOS ---
+            st.subheader("⚡ Eventos")
+            st.caption("Elige uno de los 10 eventos predeterminados. Solo puede haber uno activo a la vez.")
+            evento_activo = db.get("evento_activo")
+            if evento_activo:
+                st.success(f"🟢 **Evento activo:** {evento_activo.get('emoji', '⚡')} {evento_activo.get('nombre', '')} — {evento_activo.get('descripcion', '')}")
+                if st.button("⛔ Desactivar evento", key="btn_desactivar_evento"):
+                    db["evento_activo"] = None
+                    guardar_datos(db)
+                    st.toast("Evento desactivado.", icon="⛔")
+                    st.rerun()
+
+            opciones_eventos = [f"{e['emoji']} {e['nombre']}" for e in EVENTOS_PREDETERMINADOS]
+            seleccionado_evento = st.selectbox("Seleccionar evento", opciones_eventos, key="adm_evento_select")
+            evento_obj = EVENTOS_PREDETERMINADOS[opciones_eventos.index(seleccionado_evento)]
+            st.caption(evento_obj["descripcion"])
+            if st.button("⚡ Activar evento seleccionado", type="primary", key="btn_activar_evento"):
+                db["evento_activo"] = dict(evento_obj)
+                guardar_datos(db)
+                st.success(f"Evento activado: {evento_obj['nombre']}")
+                st.rerun()
+
+            st.divider()
+
+            # --- SECCIÓN 9: AUDITORÍA DE ACTIVIDAD INTEGRAL ---
             st.subheader("📜 Auditoría Global de Actividad")
             st.caption("Muestra todos los movimientos de TODOS los usuarios por orden cronológico estricto.")
             
@@ -1433,7 +1634,7 @@ def renderizar_panel_principal():
                         st.caption(f"`{signo}` | {act['fecha']}")
                     st.divider()
 
-            # --- SECCIÓN 9: SUGERENCIAS RECIBIDAS ---
+            # --- SECCIÓN 10: SUGERENCIAS RECIBIDAS ---
             st.subheader("📥 Sugerencias Recibidas")
             if st.button("Vaciar todas las sugerencias 🗑️", key="btn_vaciar_sug_adm"):
                 db["sugerencias"] = []
