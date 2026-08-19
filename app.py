@@ -142,7 +142,6 @@ def cargar_datos():
             datos.setdefault("subasta_activa", None)
             datos.setdefault("meta_comunitaria", None)
             datos.setdefault("premios_misterio", PREMIOS_MISTERIO_DEFECTO)
-            datos.setdefault("evento_activo", None)
             datos.setdefault("chats", {})
             datos.setdefault("usuarios", {})
             datos.setdefault("catalogo_gastar", CATALOGO_GASTAR)
@@ -158,9 +157,6 @@ def cargar_datos():
                 u_data.setdefault("bloqueado_hasta", None)
                 u_data.setdefault("ultima_caja_misterio", None)
                 u_data.setdefault("historial", [])
-                u_data.setdefault("logros", [])
-                u_data.setdefault("max_creditos", u_data.get("creditos", 0))
-                u_data.setdefault("creditos_acumulados", 0)
                 u_data.setdefault("amigos", [])
 
             semana_hoy = datetime.now(ZoneInfo("Europe/Madrid")).isocalendar()[1]
@@ -181,88 +177,6 @@ def cargar_datos():
         st.error(f"Error cargando datos de Supabase: {e}")
         return DATOS_INICIALES
 
-def _tareas_completadas(usr_data, catalogo_ganar):
-    nombres = {str(t.get("nombre", "")) for t in catalogo_ganar}
-    return [h for h in usr_data.get("historial", []) if h.get("actividad", "") in nombres]
-
-def _dias_consecutivos_tareas(usr_data, catalogo_ganar):
-    fechas = set()
-    nombres = {str(t.get("nombre", "")) for t in catalogo_ganar}
-    for h in usr_data.get("historial", []):
-        if h.get("actividad", "") in nombres:
-            try:
-                fechas.add(datetime.strptime(h.get("fecha", ""), "%d/%m/%Y %H:%M").date())
-            except Exception:
-                pass
-    if not fechas:
-        return 0
-    mejor = actual = 1
-    ordenadas = sorted(fechas)
-    for a, b in zip(ordenadas, ordenadas[1:]):
-        if (b - a).days == 1:
-            actual += 1
-            mejor = max(mejor, actual)
-        else:
-            actual = 1
-    return mejor
-
-def actualizar_logros_usuario(usr_data, catalogo_ganar):
-    historial = usr_data.get("historial", [])
-    tareas = _tareas_completadas(usr_data, catalogo_ganar)
-    n_tareas = len(tareas)
-    n_alianzas = sum(1 for h in historial if "🤝 Alianza completada" in str(h.get("actividad", "")))
-    mejor_racha = _dias_consecutivos_tareas(usr_data, catalogo_ganar)
-
-    # Métricas históricas de créditos. Las ganancias se acumulan y no se pierden
-    # cuando llega el reinicio semanal.
-    ganados_calculados = sum(max(0, -int(h.get("coste", 0) or 0)) for h in historial)
-    usr_data["creditos_acumulados"] = max(int(usr_data.get("creditos_acumulados", 0)), ganados_calculados)
-    usr_data["max_creditos"] = max(int(usr_data.get("max_creditos", 0)), int(usr_data.get("creditos", 0)))
-
-    condiciones = {
-        "primera_tarea": n_tareas >= 1, "tareas_10": n_tareas >= 10, "tareas_25": n_tareas >= 25,
-        "tareas_50": n_tareas >= 50, "tareas_100": n_tareas >= 100, "racha_7": mejor_racha >= 7,
-        "racha_14": mejor_racha >= 14, "alianzas_1": n_alianzas >= 1, "alianzas_5": n_alianzas >= 5,
-        "ganados_250": usr_data["creditos_acumulados"] >= 250, "ganados_500": usr_data["creditos_acumulados"] >= 500,
-        "ganados_1000": usr_data["creditos_acumulados"] >= 1000, "ahorro_150": usr_data["max_creditos"] >= 150,
-        "ahorro_250": usr_data["max_creditos"] >= 250, "ahorro_500": usr_data["max_creditos"] >= 500,
-    }
-    actuales = set(usr_data.setdefault("logros", []))
-    nuevos = [l["id"] for l in LOGROS_DEFINIDOS if condiciones.get(l["id"], False) and l["id"] not in actuales]
-    if nuevos:
-        usr_data["logros"].extend(nuevos)
-        return True
-    return False
-
-def actualizar_logros_todos(db):
-    cambio = False
-    for datos_usr in db.get("usuarios", {}).values():
-        if actualizar_logros_usuario(datos_usr, db.get("catalogo_ganar", CATALOGO_GANAR)):
-            cambio = True
-    return cambio
-
-def recompensa_tarea_con_evento(item, db, usr_data):
-    base = int(item.get("recompensa", 0))
-    evento = db.get("evento_activo")
-    if not evento:
-        return base
-    efecto = evento.get("efecto")
-    nombre = str(item.get("nombre", "")).lower()
-    if efecto == "multiplicador":
-        return max(1, round(base * float(evento.get("valor", 1))))
-    if efecto == "categoria" and any(p in nombre for p in evento.get("palabras", [])):
-        return max(1, round(base * float(evento.get("valor", 1))))
-    if efecto == "bonus_pequeno" and base <= 10:
-        return base + int(evento.get("valor", 5))
-    if efecto == "primera_dia":
-        hoy = obtener_fecha_hoy()
-        ya_hizo = any(h.get("fecha", "").startswith(datetime.now(ZoneInfo("Europe/Madrid")).strftime("%d/%m/%Y")) and h.get("actividad") in {t.get("nombre") for t in db.get("catalogo_ganar", CATALOGO_GANAR)} for h in usr_data.get("historial", []))
-        return base + int(evento.get("valor", 10)) if not ya_hizo else base
-    if efecto == "fin_semana":
-        if datetime.now(ZoneInfo("Europe/Madrid")).weekday() >= 5:
-            return max(1, round(base * float(evento.get("valor", 1.20))))
-    return base
-
 def guardar_datos(datos):
     try:
         supabase.table("estado_app").upsert({"id": 1, "datos": datos}).execute()
@@ -279,8 +193,6 @@ if "chat_privado" not in st.session_state:
 
 if not st.session_state.usuario:
     db = cargar_datos()
-    if actualizar_logros_todos(db):
-        guardar_datos(db)
     st.title("🔑 ACF — Acceso")
     
     tab_login, tab_reg = st.tabs(["Iniciar Sesión", "Registrarse"])
@@ -307,8 +219,6 @@ if not st.session_state.usuario:
                 db["usuarios"][r_user] = {
                     "password": r_pass,
                     "creditos": 100,
-                    "max_creditos": 100,
-                    "creditos_acumulados": 0,
                     "historial": [],
                     "logros": [],
                     "stock_usado": {},
@@ -320,10 +230,6 @@ if not st.session_state.usuario:
                 guardar_datos(db)
                 st.success("¡Cuenta creada! Ya puedes iniciar sesión.")
     st.stop()
-
-db = cargar_datos()
-if actualizar_logros_todos(db):
-    guardar_datos(db)
 
 # -------------------------------------------------------------------
 # CHAT PRIVADO Y ACTIVIDAD DE COMUNIDAD
@@ -684,24 +590,13 @@ def renderizar_panel_principal():
                                 if persona not in db.get("usuarios", {}):
                                     st.error("La persona elegida ya no existe.")
                                 else:
-                                    # Un evento de Alianza puede aumentar la recompensa antes de dividirla.
-                                    recompensa_total = recompensa
-                                    evento = db.get("evento_activo")
-                                    if evento and evento.get("efecto") == "alianza":
-                                        recompensa_total = max(1, round(recompensa * float(evento.get("valor", 1.10))))
-
                                     # Si la recompensa es impar, el crédito extra va al aliado elegido.
-                                    parte_elegido = (recompensa_total + 1) // 2
-                                    parte_poseedor = recompensa_total // 2
+                                    parte_elegido = (recompensa + 1) // 2
+                                    parte_poseedor = recompensa // 2
 
                                     usr_data["creditos"] = usr_data.get("creditos", 0) + parte_poseedor
-                                    usr_data["max_creditos"] = max(usr_data.get("max_creditos", 0), usr_data["creditos"])
                                     db["usuarios"][persona]["creditos"] = (
                                         db["usuarios"][persona].get("creditos", 0) + parte_elegido
-                                    )
-                                    db["usuarios"][persona]["max_creditos"] = max(
-                                        db["usuarios"][persona].get("max_creditos", 0),
-                                        db["usuarios"][persona]["creditos"]
                                     )
 
                                     f_reparto = obtener_fecha_hora()
@@ -893,9 +788,6 @@ def renderizar_panel_principal():
     # 3. GANAR CRÉDITOS
     with tab_ganar:
         st.subheader("Completa tareas para ganar créditos")
-        if db.get("evento_activo"):
-            evento_visible = db["evento_activo"]
-            st.info(f"⚡ **Evento activo: {evento_visible.get('emoji', '⚡')} {evento_visible.get('nombre', '')}** — {evento_visible.get('descripcion', '')}")
         if usuario_bloqueado:
             st.error(f"🔒 **Cuenta bloqueada.** No puedes realizar tareas hasta el **{fecha_fin_bloqueo}**.")
         
@@ -919,17 +811,15 @@ def renderizar_panel_principal():
                     st.markdown(f"**{item['emoji']} {item['nombre']}** \n`+{item['recompensa']} cr` | Disponibles: {disp}/{item['limite_diario']}")
                 with c2:
                     if st.button("Completar", key=f"ganar_{item['id']}", disabled=not puede_hacer):
-                        recompensa_final = recompensa_tarea_con_evento(item, db, usr_data)
-                        usr_data["creditos"] += recompensa_final
-                        usr_data["max_creditos"] = max(usr_data.get("max_creditos", 0), usr_data["creditos"])
+                        usr_data["creditos"] += item["recompensa"]
                         stock[str(item["id"])] = usados + 1
                         usr_data["historial"].append({
                             "actividad": f"{item['emoji']} {item['nombre']}", 
-                            "coste": -recompensa_final, 
+                            "coste": -item["recompensa"], 
                             "fecha": obtener_fecha_hora()
                         })
                         guardar_datos(db)
-                        st.toast(f"¡+{recompensa_final} créditos obtenidos!", icon="💰")
+                        st.toast(f"¡+{item['recompensa']} créditos obtenidos!", icon="💰")
                         st.rerun()
                 st.divider()
 
@@ -1069,16 +959,6 @@ def renderizar_panel_principal():
                     else:
                         for actividad in ultimas_3:
                             st.write(f"• {actividad.get('actividad', 'Actividad')} — `{actividad.get('fecha', '')}`")
-
-                    st.divider()
-                    st.markdown("**🏆 Logros conseguidos**")
-                    logros_amigo = data_a.get("logros", [])
-                    definidos_amigo = [l for l in LOGROS_DEFINIDOS if l["id"] in logros_amigo]
-                    if not definidos_amigo:
-                        st.caption("Todavía no tiene logros conseguidos.")
-                    else:
-                        for logro in definidos_amigo:
-                            st.write(f"{logro['emoji']} **{logro['nombre']}** — {logro['descripcion']}")
 
                     st.divider()
                     max_tr = max(1, usr_data["creditos"])
@@ -1512,31 +1392,7 @@ def renderizar_panel_principal():
 
             st.divider()
 
-            # --- SECCIÓN 8: EVENTOS PREDETERMINADOS ---
-            st.subheader("⚡ Eventos")
-            st.caption("Elige uno de los 10 eventos predeterminados. Solo puede haber uno activo a la vez.")
-            evento_activo = db.get("evento_activo")
-            if evento_activo:
-                st.success(f"🟢 **Evento activo:** {evento_activo.get('emoji', '⚡')} {evento_activo.get('nombre', '')} — {evento_activo.get('descripcion', '')}")
-                if st.button("⛔ Desactivar evento", key="btn_desactivar_evento"):
-                    db["evento_activo"] = None
-                    guardar_datos(db)
-                    st.toast("Evento desactivado.", icon="⛔")
-                    st.rerun()
-
-            opciones_eventos = [f"{e['emoji']} {e['nombre']}" for e in EVENTOS_PREDETERMINADOS]
-            seleccionado_evento = st.selectbox("Seleccionar evento", opciones_eventos, key="adm_evento_select")
-            evento_obj = EVENTOS_PREDETERMINADOS[opciones_eventos.index(seleccionado_evento)]
-            st.caption(evento_obj["descripcion"])
-            if st.button("⚡ Activar evento seleccionado", type="primary", key="btn_activar_evento"):
-                db["evento_activo"] = dict(evento_obj)
-                guardar_datos(db)
-                st.success(f"Evento activado: {evento_obj['nombre']}")
-                st.rerun()
-
-            st.divider()
-
-            # --- SECCIÓN 9: AUDITORÍA DE ACTIVIDAD INTEGRAL ---
+            # --- SECCIÓN 8: AUDITORÍA DE ACTIVIDAD INTEGRAL ---
             st.subheader("📜 Auditoría Global de Actividad")
             st.caption("Muestra todos los movimientos de TODOS los usuarios por orden cronológico estricto.")
             
@@ -1577,7 +1433,7 @@ def renderizar_panel_principal():
                         st.caption(f"`{signo}` | {act['fecha']}")
                     st.divider()
 
-            # --- SECCIÓN 10: SUGERENCIAS RECIBIDAS ---
+            # --- SECCIÓN 9: SUGERENCIAS RECIBIDAS ---
             st.subheader("📥 Sugerencias Recibidas")
             if st.button("Vaciar todas las sugerencias 🗑️", key="btn_vaciar_sug_adm"):
                 db["sugerencias"] = []
